@@ -679,6 +679,7 @@
           <div class="notice">API: ${esc(apiLabel)}</div>
           <div class="actions" style="justify-content:flex-start;margin-top:12px">
             <button class="btn secondary" data-action="check-backend">Probar backend</button>
+            <button class="btn secondary" data-action="check-auto-import">Ver autoimportacion</button>
             <button class="btn secondary" data-action="check-google-sheets">Probar GSheet</button>
           </div>
         </div>
@@ -918,6 +919,7 @@
     document.querySelector("[data-action='import-csv']")?.addEventListener("click", importCsv);
     document.querySelector("[data-action='import-google-sheets']")?.addEventListener("click", importGoogleSheets);
     document.querySelector("[data-action='check-backend']")?.addEventListener("click", checkBackend);
+    document.querySelector("[data-action='check-auto-import']")?.addEventListener("click", checkAutoImport);
     document.querySelector("[data-action='check-google-sheets']")?.addEventListener("click", checkGoogleSheets);
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
@@ -1254,6 +1256,29 @@
       addImportLog(`Backend conectado: ${payload.service || "API"} OK.`);
     } catch (error) {
       addImportLog(`Backend no responde: ${error.message}.`);
+    }
+  }
+
+  async function checkAutoImport() {
+    if (!API_BASE_URL) {
+      addImportLog("No se puede revisar autoimportacion sin backend configurado.");
+      return;
+    }
+    try {
+      const response = await apiFetch("/api/health");
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      const payload = await response.json();
+      const minutes = Number(payload.autoImportMinutes || 0);
+      if (!minutes) {
+        addImportLog("Autoimportacion desactivada. Configura AUTO_IMPORT_MINUTES en el backend.");
+        return;
+      }
+      const last = payload.lastAutoImport
+        ? `${payload.lastAutoImport.ok ? "OK" : "fallo"} ${payload.lastAutoImport.at || ""}${payload.lastAutoImport.error ? `: ${payload.lastAutoImport.error}` : ""}`
+        : "sin ejecuciones registradas";
+      addImportLog(`Autoimportacion activa cada ${minutes} minutos. Ultimo intento: ${last}.`);
+    } catch (error) {
+      addImportLog(`No se pudo revisar autoimportacion: ${error.message}.`);
     }
   }
 

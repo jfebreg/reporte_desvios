@@ -20,6 +20,7 @@ Copia `backend/.env.example` como `backend/.env` y completa:
 PORT=8787
 APP_ORIGIN=http://localhost:4181
 API_TOKEN=CAMBIAR_POR_TOKEN_LARGO
+AUTO_IMPORT_MINUTES=15
 GOOGLE_SHEET_ID=ID_DE_LA_SHEET
 GOOGLE_SHEET_RANGE=Respuestas de formulario 1!A:Z
 GOOGLE_CLIENT_EMAIL=cuenta-servicio@proyecto.iam.gserviceaccount.com

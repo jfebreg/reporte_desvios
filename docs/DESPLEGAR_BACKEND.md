@@ -14,6 +14,7 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
    - `PORT`: Render lo define automaticamente.
    - `APP_ORIGIN`: `https://jfebreg.github.io`
    - `API_TOKEN`: valor largo y dificil de adivinar.
+   - `AUTO_IMPORT_MINUTES`: `15` para importar automaticamente cada 15 minutos, o `0` para desactivar.
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_SHEET_RANGE`
    - `GOOGLE_CLIENT_EMAIL`
@@ -61,6 +62,8 @@ GET  /api/state
 PUT  /api/state
 POST /api/import/google-sheets
 ```
+
+`GET /api/health` muestra si la importacion automatica esta activa y el resultado del ultimo intento.
 
 ## Pendiente para produccion robusta
 

@@ -9,6 +9,8 @@ loadEnv();
 const PORT = Number(process.env.PORT || 8787);
 const APP_ORIGIN = process.env.APP_ORIGIN || "*";
 const API_TOKEN = process.env.API_TOKEN || "";
+const AUTO_IMPORT_MINUTES = Number(process.env.AUTO_IMPORT_MINUTES || 0);
+let lastAutoImport = null;
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -25,7 +27,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/health") {
-      sendJson(res, 200, { ok: true, service: "reporte-desvios-api", auth: API_TOKEN ? "enabled" : "disabled" });
+      sendJson(res, 200, {
+        ok: true,
+        service: "reporte-desvios-api",
+        auth: API_TOKEN ? "enabled" : "disabled",
+        autoImportMinutes: AUTO_IMPORT_MINUTES,
+        lastAutoImport
+      });
       return;
     }
 
@@ -80,6 +88,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Reporte Desvios API escuchando en http://localhost:${PORT}`);
+  startAutoImport();
 });
 
 function sendJson(res, status, payload) {
@@ -107,4 +116,27 @@ async function readJson(req) {
   for await (const chunk of req) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString("utf8");
   return raw ? JSON.parse(raw) : {};
+}
+
+function startAutoImport() {
+  if (!AUTO_IMPORT_MINUTES || AUTO_IMPORT_MINUTES < 1) {
+    console.log("Importacion automatica desactivada. Configura AUTO_IMPORT_MINUTES para activarla.");
+    return;
+  }
+  const intervalMs = AUTO_IMPORT_MINUTES * 60 * 1000;
+  console.log(`Importacion automatica activada cada ${AUTO_IMPORT_MINUTES} minutos.`);
+  setInterval(runAutoImport, intervalMs);
+}
+
+async function runAutoImport() {
+  try {
+    const state = await readState();
+    const nextState = await importFromGoogleSheets(state);
+    await writeState(nextState);
+    lastAutoImport = { at: new Date().toISOString(), ok: true };
+    console.log(`Importacion automatica OK: ${lastAutoImport.at}`);
+  } catch (error) {
+    lastAutoImport = { at: new Date().toISOString(), ok: false, error: error.message };
+    console.error(`Importacion automatica fallo: ${error.message}`);
+  }
 }
