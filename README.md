@@ -46,6 +46,7 @@ El repo incluye un backend Node sin dependencias externas en `backend/`.
 - `POST /api/import/google-sheets`: importa respuestas nuevas con Google Sheets API.
 
 La configuracion de Google Sheets API esta en `docs/GOOGLE_SHEETS_API.md`.
+El despliegue del backend esta en `docs/DESPLEGAR_BACKEND.md`.
 
 ## Formato CSV de importacion
 

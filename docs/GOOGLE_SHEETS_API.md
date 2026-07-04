@@ -36,6 +36,7 @@ GOOGLE_SERVICE_ACCOUNT_JSON=C:\ruta\service-account.json
 Desde la carpeta del repo:
 
 ```bash
+node backend/scripts/check-google.js
 node backend/server.js
 ```
 
@@ -65,3 +66,5 @@ Para uso real con varios usuarios:
 - `config.js` debe apuntar a esa URL HTTPS.
 - La base `backend/data/state.json` es una primera etapa; para produccion estable debe migrarse a PostgreSQL usando `docs/productivo-schema.sql`.
 - No subir `backend/.env` ni archivos de service account a GitHub.
+
+Ver tambien `docs/DESPLEGAR_BACKEND.md`.

@@ -3,17 +3,7 @@ const { getAccessToken } = require("./googleAuth");
 const DEFAULT_SITE = "Aduccion Lyon Valparaiso / Terratunel SpA";
 
 async function importFromGoogleSheets(state) {
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEET_RANGE || "Respuestas de formulario 1!A:Z";
-  if (!sheetId) throw new Error("Falta GOOGLE_SHEET_ID en backend/.env");
-
-  const token = await getAccessToken();
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}`;
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error(`Google Sheets API fallo ${response.status}: ${await response.text()}`);
-
-  const payload = await response.json();
-  const values = payload.values || [];
+  const values = await readSheetValues();
   if (values.length < 2) return withImport(state, "Google Sheets sin filas nuevas.");
 
   const header = values[0];
@@ -62,6 +52,46 @@ async function importFromGoogleSheets(state) {
   });
 
   return withImport(state, `${imported} hallazgos importados automaticamente desde Google Sheets API.`);
+}
+
+async function previewGoogleSheets() {
+  const values = await readSheetValues();
+  const header = values[0] || [];
+  const rows = values.slice(1, 6);
+  return {
+    ok: true,
+    configured: true,
+    sheetId: mask(process.env.GOOGLE_SHEET_ID),
+    range: process.env.GOOGLE_SHEET_RANGE || "Respuestas de formulario 1!A:Z",
+    headers: header,
+    sampleRows: rows,
+    rowCount: Math.max(values.length - 1, 0)
+  };
+}
+
+function getGoogleSheetsStatus() {
+  return {
+    configured: Boolean(process.env.GOOGLE_SHEET_ID && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON || (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY))),
+    sheetId: mask(process.env.GOOGLE_SHEET_ID),
+    range: process.env.GOOGLE_SHEET_RANGE || "Respuestas de formulario 1!A:Z",
+    hasServiceAccountJson: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
+    hasClientEmail: Boolean(process.env.GOOGLE_CLIENT_EMAIL),
+    hasPrivateKey: Boolean(process.env.GOOGLE_PRIVATE_KEY)
+  };
+}
+
+async function readSheetValues() {
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const range = process.env.GOOGLE_SHEET_RANGE || "Respuestas de formulario 1!A:Z";
+  if (!sheetId) throw new Error("Falta GOOGLE_SHEET_ID en backend/.env");
+
+  const token = await getAccessToken();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}`;
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error(`Google Sheets API fallo ${response.status}: ${await response.text()}`);
+
+  const payload = await response.json();
+  return payload.values || [];
 }
 
 function mapRow(header, row, rowNumber) {
@@ -177,6 +207,13 @@ function event(actor, detail) {
   return { at: todayIso(), actor, detail };
 }
 
+function mask(value) {
+  const text = String(value || "");
+  if (!text) return "";
+  if (text.length <= 10) return "***";
+  return `${text.slice(0, 4)}...${text.slice(-4)}`;
+}
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -185,4 +222,4 @@ function normalize(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
-module.exports = { importFromGoogleSheets };
+module.exports = { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets };

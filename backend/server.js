@@ -1,7 +1,7 @@
 const http = require("node:http");
 const { URL } = require("node:url");
 const { readState, writeState } = require("./src/store");
-const { importFromGoogleSheets } = require("./src/sheets");
+const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
 const { loadEnv } = require("./src/env");
 
 loadEnv();
@@ -20,6 +20,16 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && url.pathname === "/api/health") {
       sendJson(res, 200, { ok: true, service: "reporte-desvios-api" });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/google-sheets/status") {
+      sendJson(res, 200, getGoogleSheetsStatus());
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/google-sheets/preview") {
+      sendJson(res, 200, await previewGoogleSheets());
       return;
     }
 
