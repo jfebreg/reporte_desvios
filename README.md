@@ -35,6 +35,8 @@ Para una version productiva, reemplazar las partes simuladas por:
 - Gmail API, SendGrid o Amazon SES para enviar correos reales.
 - Autenticacion corporativa con Google Workspace o Microsoft Entra ID.
 
+La ruta productiva esta detallada en `PRODUCTIVO.md`, con esquema inicial de base de datos y puente Apps Script en `docs/`.
+
 ## Formato CSV de importacion
 
 ```csv
