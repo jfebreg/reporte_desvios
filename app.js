@@ -670,9 +670,18 @@
   }
 
   function renderImport() {
+    const apiLabel = API_BASE_URL ? API_BASE_URL : "Sin backend configurado";
     return `
       ${renderTop("Importar desde Google Sheets", "Pega filas CSV exportadas desde la hoja de respuestas del Form. La web evita duplicados usando el ID de fila/formulario.")}
       <section class="grid two-col">
+        <div class="panel">
+          <div class="panel-header"><h3>Conexion productiva</h3></div>
+          <div class="notice">API: ${esc(apiLabel)}</div>
+          <div class="actions" style="justify-content:flex-start;margin-top:12px">
+            <button class="btn secondary" data-action="check-backend">Probar backend</button>
+            <button class="btn secondary" data-action="check-google-sheets">Probar GSheet</button>
+          </div>
+        </div>
         <div class="panel">
           <div class="notice">Acepta el CSV original de Google Forms con encabezados o el formato simple: sheetRowId,fecha,obra,ubicacion,descripcion,foto</div>
           <div class="field" style="margin-top:12px">
@@ -690,6 +699,8 @@
             <button class="btn danger" data-action="reset-data">Limpiar datos actuales</button>
           </div>
         </div>
+      </section>
+      <section class="grid two-col">
         <div class="panel">
           <div class="panel-header"><h3>Ultimas importaciones</h3></div>
           <ul class="timeline">
@@ -906,6 +917,8 @@
     });
     document.querySelector("[data-action='import-csv']")?.addEventListener("click", importCsv);
     document.querySelector("[data-action='import-google-sheets']")?.addEventListener("click", importGoogleSheets);
+    document.querySelector("[data-action='check-backend']")?.addEventListener("click", checkBackend);
+    document.querySelector("[data-action='check-google-sheets']")?.addEventListener("click", checkGoogleSheets);
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
     document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
@@ -1214,9 +1227,7 @@
 
   async function importGoogleSheets() {
     if (!API_BASE_URL) {
-      state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: "Configura config.js con apiBaseUrl para importar automaticamente desde Google Sheets." });
-      saveData();
-      render();
+      addImportLog("Configura config.js con apiBaseUrl para importar automaticamente desde Google Sheets.");
       return;
     }
     try {
@@ -1227,10 +1238,52 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
       render();
     } catch (error) {
-      state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `No se pudo importar automaticamente desde Google Sheets: ${error.message}` });
-      saveData();
-      render();
+      addImportLog(`No se pudo importar automaticamente desde Google Sheets: ${error.message}`);
     }
+  }
+
+  async function checkBackend() {
+    if (!API_BASE_URL) {
+      addImportLog("Backend no configurado. Edita config.js y define apiBaseUrl.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/health`);
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      const payload = await response.json();
+      addImportLog(`Backend conectado: ${payload.service || "API"} OK.`);
+    } catch (error) {
+      addImportLog(`Backend no responde: ${error.message}.`);
+    }
+  }
+
+  async function checkGoogleSheets() {
+    if (!API_BASE_URL) {
+      addImportLog("No se puede probar GSheet sin backend configurado en config.js.");
+      return;
+    }
+    try {
+      const statusResponse = await fetch(`${API_BASE_URL}/api/google-sheets/status`);
+      if (!statusResponse.ok) throw new Error(`API status ${statusResponse.status}`);
+      const status = await statusResponse.json();
+      if (!status.configured) {
+        addImportLog("Backend responde, pero Google Sheets no esta configurado. Revisa GOOGLE_SHEET_ID y credenciales.");
+        return;
+      }
+      const previewResponse = await fetch(`${API_BASE_URL}/api/google-sheets/preview`);
+      if (!previewResponse.ok) throw new Error(`API preview ${previewResponse.status}`);
+      const preview = await previewResponse.json();
+      const headers = (preview.headers || []).slice(0, 5).join(" | ");
+      addImportLog(`GSheet conectada: ${preview.rowCount || 0} filas detectadas. Encabezados: ${headers || "sin encabezados"}.`);
+    } catch (error) {
+      addImportLog(`No se pudo probar GSheet: ${error.message}.`);
+    }
+  }
+
+  function addImportLog(detail) {
+    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail });
+    saveData();
+    render();
   }
 
   function importPeople() {
