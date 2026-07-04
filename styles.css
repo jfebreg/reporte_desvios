@@ -177,6 +177,12 @@ button {
   border: 1px solid var(--line);
 }
 
+.btn.compact {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .grid {
   display: grid;
   gap: 16px;

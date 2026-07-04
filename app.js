@@ -669,14 +669,37 @@
   function renderPeople() {
     return `
       ${renderTop("Personas predefinidas", "Responsables disponibles para asignaciones, permisos y alertas.", `<button class="btn" data-action="add-person">Agregar persona</button>`)}
+      <section class="grid two-col">
+        <div class="panel">
+          <div class="panel-header"><h3>Carga masiva de personas</h3></div>
+          <div class="notice">Formato recomendado: nombre,correo,area,rol. Si el correo o nombre ya existe, se actualiza.</div>
+          <div class="field" style="margin-top:12px">
+            <label>Listado CSV</label>
+            <textarea data-people-csv placeholder="nombre,correo,area,rol&#10;Mauricio Munoz,mauricio@empresa.cl,Produccion,manager&#10;Karina Espinoza,karina@empresa.cl,Prevencion,manager"></textarea>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>O cargar archivo CSV</label>
+            <input type="file" accept=".csv,text/csv" data-people-file>
+          </div>
+          <div class="actions" style="justify-content:flex-start;margin-top:12px">
+            <button class="btn" data-action="import-people">Cargar personas</button>
+            <button class="btn secondary" data-action="sample-people">Cargar ejemplo</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Reglas de administracion</h3></div>
+          <p class="plain-text">Las personas con hallazgos pendientes pueden eliminarse, pero sus hallazgos quedan sin responsable para reasignacion. La cuenta activa y el ultimo administrador no se eliminan.</p>
+        </div>
+      </section>
       <section class="panel">
         <div class="panel-header"><h3>Directorio editable</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Nombre</th><th>Correo</th><th>Area</th><th>Rol</th><th>Pendientes</th></tr></thead>
+            <thead><tr><th>Acciones</th><th>Nombre</th><th>Correo</th><th>Area</th><th>Rol</th><th>Pendientes</th></tr></thead>
             <tbody>
               ${state.data.people.map((p) => `
                 <tr>
+                  <td><button class="btn danger compact" data-action="delete-person" data-person-id="${esc(p.id)}">Eliminar</button></td>
                   <td><input value="${esc(p.name)}" data-person-field="name" data-person-id="${esc(p.id)}"></td>
                   <td><input type="email" value="${esc(p.email)}" data-person-field="email" data-person-id="${esc(p.id)}"></td>
                   <td><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
@@ -849,8 +872,14 @@
     });
     document.querySelector("[data-action='import-csv']")?.addEventListener("click", importCsv);
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
+    document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
+    document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
+      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol\nMauricio Munoz,mauricio.munoz@empresa.cl,Produccion,manager\nRuben Maure,ruben.maure@empresa.cl,Terreno,manager\nKarina Espinoza,karina.espinoza@empresa.cl,Prevencion,manager\nJoaquin Atena,joaquin.atena@empresa.cl,Electricidad,manager";
+    });
+    document.querySelectorAll("[data-action='delete-person']").forEach((button) => button.addEventListener("click", deletePerson));
     document.querySelector("[data-action='reset-data']")?.addEventListener("click", resetData);
     document.querySelector("[data-import-file]")?.addEventListener("change", loadImportFile);
+    document.querySelector("[data-people-file]")?.addEventListener("change", loadPeopleFile);
     document.querySelector("[data-action='generate-reminders']")?.addEventListener("click", generateReminders);
     document.querySelector("[data-action='save-settings']")?.addEventListener("click", saveSettings);
   }
@@ -1148,12 +1177,132 @@
     render();
   }
 
+  function importPeople() {
+    const text = document.querySelector("[data-people-csv]")?.value.trim();
+    if (!text) return;
+    const rows = parseCsv(text).filter((row) => row.some(Boolean));
+    if (!rows.length) return;
+    const header = rows[0] || [];
+    const hasHeader = header.some((cell) => ["nombre", "name", "correo", "email", "area", "rol", "role"].includes(normalizeHeader(cell)));
+    const records = hasHeader ? rows.slice(1).map((row) => mapPersonRow(header, row)) : rows.map(mapSimplePersonRow);
+    let created = 0;
+    let updated = 0;
+    records.forEach((record) => {
+      if (!record.name) return;
+      const existing = findExistingPerson(record);
+      if (existing) {
+        existing.name = record.name || existing.name;
+        existing.email = record.email || existing.email;
+        existing.area = record.area || existing.area;
+        existing.role = record.role || existing.role;
+        updated += 1;
+      } else {
+        state.data.people.push({
+          id: uniquePersonId(record.name),
+          name: record.name,
+          email: record.email || `${normalizeHeader(record.name).replace(/[^a-z0-9]+/g, ".")}@empresa.cl`,
+          area: record.area || "Obra",
+          role: record.role || "manager"
+        });
+        created += 1;
+      }
+    });
+    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${created} personas creadas; ${updated} personas actualizadas.` });
+    saveData();
+    render();
+  }
+
+  function mapPersonRow(header, row) {
+    const value = (names) => {
+      const aliases = Array.isArray(names) ? names : [names];
+      const index = header.findIndex((cell) => aliases.includes(normalizeHeader(cell)));
+      return index >= 0 ? String(row[index] || "").trim() : "";
+    };
+    return normalizePersonRecord({
+      name: value(["nombre", "name", "responsable"]),
+      email: value(["correo", "email", "mail"]),
+      area: value(["area", "cargo", "especialidad"]),
+      role: value(["rol", "role", "perfil"])
+    });
+  }
+
+  function mapSimplePersonRow(row) {
+    return normalizePersonRecord({ name: row[0], email: row[1], area: row[2], role: row[3] });
+  }
+
+  function normalizePersonRecord(record) {
+    const role = normalizeHeader(record.role) === "admin" || normalizeHeader(record.role).includes("administrador") ? "admin" : "manager";
+    return {
+      name: String(record.name || "").trim(),
+      email: String(record.email || "").trim(),
+      area: String(record.area || "Obra").trim(),
+      role
+    };
+  }
+
+  function findExistingPerson(record) {
+    const email = normalizeHeader(record.email);
+    const name = normalizeHeader(record.name);
+    return state.data.people.find((person) => (email && normalizeHeader(person.email) === email) || normalizeHeader(person.name) === name);
+  }
+
+  function uniquePersonId(name) {
+    const base = `u-${normalizeHeader(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}`;
+    let id = base;
+    let index = 2;
+    while (state.data.people.some((person) => person.id === id)) {
+      id = `${base}-${index}`;
+      index += 1;
+    }
+    return id;
+  }
+
+  function deletePerson(e) {
+    const id = e.target.dataset.personId;
+    const person = state.data.people.find((item) => item.id === id);
+    if (!person) return;
+    const adminCount = state.data.people.filter((item) => item.role === "admin").length;
+    if (id === state.currentUserId) {
+      alert("No puedes eliminar la cuenta que esta activa en este momento.");
+      return;
+    }
+    if (person.role === "admin" && adminCount <= 1) {
+      alert("Debe quedar al menos un administrador.");
+      return;
+    }
+    const assigned = state.data.findings.filter((finding) => finding.ownerId === id);
+    const message = assigned.length
+      ? `${person.name} tiene ${assigned.length} hallazgos asignados. Al eliminarla quedaran sin responsable para reasignacion.`
+      : `Eliminar a ${person.name} del directorio.`;
+    if (!confirm(message)) return;
+    assigned.forEach((finding) => {
+      finding.ownerId = "";
+      if (finding.status === "Asignado" || finding.status === "En gestion" || finding.status === "Vencido") finding.status = "Nuevo";
+      finding.history.push(event(currentUser().name, `Responsable eliminado del directorio: ${person.name}`));
+    });
+    state.data.people = state.data.people.filter((item) => item.id !== id);
+    if (state.filters.ownerId === id) state.filters.ownerId = "Todos";
+    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `Persona eliminada: ${person.name}. Hallazgos liberados: ${assigned.length}.` });
+    saveData();
+    render();
+  }
+
   function loadImportFile(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       document.querySelector("[data-import-csv]").value = String(reader.result || "");
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  function loadPeopleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      document.querySelector("[data-people-csv]").value = reader.result;
     };
     reader.readAsText(file, "utf-8");
   }
