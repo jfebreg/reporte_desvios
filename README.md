@@ -1,5 +1,7 @@
 # Plataforma Web para Gestion de Hallazgos de Seguridad en Obra
 
+Repositorio preparado para publicacion en GitHub Pages.
+
 Esta carpeta contiene un MVP navegable de la web solicitada. Funciona como aplicacion estatica y guarda los datos en el almacenamiento local del navegador.
 
 ## Como abrir
