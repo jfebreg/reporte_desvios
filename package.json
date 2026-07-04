@@ -1,0 +1,9 @@
+{
+  "name": "reporte-desvios",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "backend": "node backend/server.js",
+    "check": "node --check app.js && node --check backend/server.js && node --check backend/src/env.js && node --check backend/src/store.js && node --check backend/src/googleAuth.js && node --check backend/src/sheets.js"
+  }
+}

@@ -1,6 +1,8 @@
 (function () {
   const STORAGE_KEY = "obraSafetyFindings.v1";
   const today = new Date("2026-07-03T12:00:00");
+  const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
+  let remoteStateLoaded = false;
 
   const people = [
     { id: "u-admin", name: "Carolina Rivas", role: "admin", email: "carolina.rivas@empresa.cl", area: "Prevencion" },
@@ -188,6 +190,34 @@
 
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+    saveRemoteState();
+  }
+
+  async function loadRemoteState() {
+    if (!API_BASE_URL || remoteStateLoaded) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/state`);
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      state.data = migrateData(await response.json());
+      remoteStateLoaded = true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      render();
+    } catch (error) {
+      console.warn("No se pudo cargar backend productivo; se usa respaldo local.", error);
+    }
+  }
+
+  async function saveRemoteState() {
+    if (!API_BASE_URL || !remoteStateLoaded) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/state`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.data)
+      });
+    } catch (error) {
+      console.warn("No se pudo guardar en backend productivo; se mantiene respaldo local.", error);
+    }
   }
 
   function currentUser() {
@@ -654,6 +684,7 @@
             <input type="file" accept=".csv,text/csv" data-import-file>
           </div>
           <div class="actions" style="justify-content:flex-start;margin-top:12px">
+            <button class="btn" data-action="import-google-sheets">Importar automatico GSheet</button>
             <button class="btn" data-action="import-csv">Importar nuevos</button>
             <button class="btn secondary" data-action="sample-csv">Cargar ejemplo</button>
             <button class="btn danger" data-action="reset-data">Limpiar datos actuales</button>
@@ -874,6 +905,7 @@
       document.querySelector("[data-import-csv]").value = "FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://drive.google.com/foto1\nFORM-1007,2026-07-03,Torre Sur,Acceso camion,Peaton circula sin segregacion de ruta,";
     });
     document.querySelector("[data-action='import-csv']")?.addEventListener("click", importCsv);
+    document.querySelector("[data-action='import-google-sheets']")?.addEventListener("click", importGoogleSheets);
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
     document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
@@ -1178,6 +1210,27 @@
     state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${imported} hallazgos nuevos importados; duplicados omitidos.` });
     saveData();
     render();
+  }
+
+  async function importGoogleSheets() {
+    if (!API_BASE_URL) {
+      state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: "Configura config.js con apiBaseUrl para importar automaticamente desde Google Sheets." });
+      saveData();
+      render();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/import/google-sheets`, { method: "POST" });
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      state.data = migrateData(await response.json());
+      remoteStateLoaded = true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      render();
+    } catch (error) {
+      state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `No se pudo importar automaticamente desde Google Sheets: ${error.message}` });
+      saveData();
+      render();
+    }
   }
 
   function importPeople() {
@@ -1497,4 +1550,5 @@
   }
 
   render();
+  loadRemoteState();
 })();

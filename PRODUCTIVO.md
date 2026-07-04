@@ -92,3 +92,14 @@ Convertir la demo estatica en un sistema con datos compartidos, usuarios reales,
 ## Recomendacion Practica
 
 Para partir rapido sin exponer credenciales en el frontend, usar Apps Script como puente privado entre Google Sheets y el backend. Luego, en una segunda vuelta, migrar a Google Sheets API con cuenta de servicio si la organizacion lo permite.
+
+## Implementacion incluida en este repo
+
+Se agrego un backend inicial en `backend/` que:
+
+- Expone API para estado compartido.
+- Guarda datos en `backend/data/state.json` como primera etapa.
+- Importa desde Google Sheets API usando cuenta de servicio.
+- Permite que la web use backend al configurar `config.js`.
+
+Para produccion estable, el siguiente cambio recomendado es reemplazar `backend/data/state.json` por PostgreSQL usando `docs/productivo-schema.sql`.

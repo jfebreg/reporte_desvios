@@ -37,6 +37,16 @@ Para una version productiva, reemplazar las partes simuladas por:
 
 La ruta productiva esta detallada en `PRODUCTIVO.md`, con esquema inicial de base de datos y puente Apps Script en `docs/`.
 
+## Backend productivo inicial
+
+El repo incluye un backend Node sin dependencias externas en `backend/`.
+
+- `GET /api/state`: estado oficial compartido.
+- `PUT /api/state`: guarda cambios de la web.
+- `POST /api/import/google-sheets`: importa respuestas nuevas con Google Sheets API.
+
+La configuracion de Google Sheets API esta en `docs/GOOGLE_SHEETS_API.md`.
+
 ## Formato CSV de importacion
 
 ```csv
