@@ -1,3 +1,4 @@
 window.REPORTE_DESVIOS_CONFIG = {
-  apiBaseUrl: ""
+  apiBaseUrl: "",
+  apiToken: ""
 };

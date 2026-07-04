@@ -13,6 +13,7 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
 4. Variables de entorno:
    - `PORT`: Render lo define automaticamente.
    - `APP_ORIGIN`: `https://jfebreg.github.io`
+   - `API_TOKEN`: valor largo y dificil de adivinar.
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_SHEET_RANGE`
    - `GOOGLE_CLIENT_EMAIL`
@@ -21,7 +22,8 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
 
 ```js
 window.REPORTE_DESVIOS_CONFIG = {
-  apiBaseUrl: "https://TU-BACKEND.onrender.com"
+  apiBaseUrl: "https://TU-BACKEND.onrender.com",
+  apiToken: "MISMO_VALOR_DE_API_TOKEN"
 };
 ```
 
@@ -42,7 +44,8 @@ node backend/server.js
 
 ```js
 window.REPORTE_DESVIOS_CONFIG = {
-  apiBaseUrl: "http://localhost:8787"
+  apiBaseUrl: "http://localhost:8787",
+  apiToken: "MISMO_VALOR_DE_API_TOKEN"
 };
 ```
 
@@ -62,3 +65,7 @@ POST /api/import/google-sheets
 ## Pendiente para produccion robusta
 
 La version actual guarda estado en `backend/data/state.json`. Esto sirve para una primera prueba real, pero para produccion estable debe reemplazarse por PostgreSQL usando `docs/productivo-schema.sql`.
+
+## Nota de seguridad
+
+`API_TOKEN` es una barrera basica para evitar llamadas accidentales o abiertas al backend. Como el frontend en GitHub Pages es publico, cualquier token puesto en `config.js` puede ser visto por usuarios con conocimientos tecnicos. Para produccion completa se debe implementar autenticacion real por usuario, por ejemplo Google Workspace o Microsoft Entra ID.

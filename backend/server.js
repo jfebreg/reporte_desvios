@@ -8,6 +8,7 @@ loadEnv();
 
 const PORT = Number(process.env.PORT || 8787);
 const APP_ORIGIN = process.env.APP_ORIGIN || "*";
+const API_TOKEN = process.env.API_TOKEN || "";
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -18,8 +19,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    if (!isAuthorized(req)) {
+      sendJson(res, 401, { error: "unauthorized" });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/health") {
-      sendJson(res, 200, { ok: true, service: "reporte-desvios-api" });
+      sendJson(res, 200, { ok: true, service: "reporte-desvios-api", auth: API_TOKEN ? "enabled" : "disabled" });
       return;
     }
 
@@ -85,9 +91,15 @@ function send(res, status, body) {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": APP_ORIGIN,
     "Access-Control-Allow-Methods": "GET,PUT,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
   });
   res.end(body);
+}
+
+function isAuthorized(req) {
+  if (!API_TOKEN) return true;
+  const header = req.headers.authorization || "";
+  return header === `Bearer ${API_TOKEN}`;
 }
 
 async function readJson(req) {

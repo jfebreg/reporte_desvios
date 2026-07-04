@@ -2,6 +2,7 @@
   const STORAGE_KEY = "obraSafetyFindings.v1";
   const today = new Date("2026-07-03T12:00:00");
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
+  const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
   let remoteStateLoaded = false;
 
   const people = [
@@ -196,7 +197,7 @@
   async function loadRemoteState() {
     if (!API_BASE_URL || remoteStateLoaded) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/state`);
+      const response = await apiFetch("/api/state");
       if (!response.ok) throw new Error(`API ${response.status}`);
       state.data = migrateData(await response.json());
       remoteStateLoaded = true;
@@ -210,9 +211,8 @@
   async function saveRemoteState() {
     if (!API_BASE_URL || !remoteStateLoaded) return;
     try {
-      await fetch(`${API_BASE_URL}/api/state`, {
+      await apiFetch("/api/state", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(state.data)
       });
     } catch (error) {
@@ -1231,7 +1231,7 @@
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/import/google-sheets`, { method: "POST" });
+      const response = await apiFetch("/api/import/google-sheets", { method: "POST" });
       if (!response.ok) throw new Error(`API ${response.status}`);
       state.data = migrateData(await response.json());
       remoteStateLoaded = true;
@@ -1248,7 +1248,7 @@
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/health`);
+      const response = await apiFetch("/api/health");
       if (!response.ok) throw new Error(`API ${response.status}`);
       const payload = await response.json();
       addImportLog(`Backend conectado: ${payload.service || "API"} OK.`);
@@ -1263,14 +1263,14 @@
       return;
     }
     try {
-      const statusResponse = await fetch(`${API_BASE_URL}/api/google-sheets/status`);
+      const statusResponse = await apiFetch("/api/google-sheets/status");
       if (!statusResponse.ok) throw new Error(`API status ${statusResponse.status}`);
       const status = await statusResponse.json();
       if (!status.configured) {
         addImportLog("Backend responde, pero Google Sheets no esta configurado. Revisa GOOGLE_SHEET_ID y credenciales.");
         return;
       }
-      const previewResponse = await fetch(`${API_BASE_URL}/api/google-sheets/preview`);
+      const previewResponse = await apiFetch("/api/google-sheets/preview");
       if (!previewResponse.ok) throw new Error(`API preview ${previewResponse.status}`);
       const preview = await previewResponse.json();
       const headers = (preview.headers || []).slice(0, 5).join(" | ");
@@ -1284,6 +1284,12 @@
     state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail });
     saveData();
     render();
+  }
+
+  function apiFetch(path, options = {}) {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (API_TOKEN) headers.Authorization = `Bearer ${API_TOKEN}`;
+    return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   }
 
   function importPeople() {

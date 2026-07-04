@@ -44,6 +44,9 @@ El repo incluye un backend Node sin dependencias externas en `backend/`.
 - `GET /api/state`: estado oficial compartido.
 - `PUT /api/state`: guarda cambios de la web.
 - `POST /api/import/google-sheets`: importa respuestas nuevas con Google Sheets API.
+- `API_TOKEN`: token opcional para proteger la API.
+
+Nota: `API_TOKEN` es una proteccion basica. Para uso productivo completo se requiere login real por usuario.
 
 La configuracion de Google Sheets API esta en `docs/GOOGLE_SHEETS_API.md`.
 El despliegue del backend esta en `docs/DESPLEGAR_BACKEND.md`.
