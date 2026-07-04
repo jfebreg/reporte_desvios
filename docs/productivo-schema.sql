@@ -11,7 +11,7 @@ create table users (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null unique,
-  role text not null check (role in ('admin', 'manager')),
+  role text not null check (role in ('admin', 'usuario')),
   area text,
   active boolean not null default true,
   created_at timestamptz not null default now()

@@ -4,9 +4,9 @@
 
   const people = [
     { id: "u-admin", name: "Carolina Rivas", role: "admin", email: "carolina.rivas@empresa.cl", area: "Prevencion" },
-    { id: "u-juan", name: "Juan Perez", role: "manager", email: "juan.perez@empresa.cl", area: "Terreno" },
-    { id: "u-maria", name: "Maria Soto", role: "manager", email: "maria.soto@empresa.cl", area: "Calidad" },
-    { id: "u-diego", name: "Diego Morales", role: "manager", email: "diego.morales@empresa.cl", area: "Subcontratos" }
+    { id: "u-juan", name: "Juan Perez", role: "usuario", email: "juan.perez@empresa.cl", area: "Terreno" },
+    { id: "u-maria", name: "Maria Soto", role: "usuario", email: "maria.soto@empresa.cl", area: "Calidad" },
+    { id: "u-diego", name: "Diego Morales", role: "usuario", email: "diego.morales@empresa.cl", area: "Subcontratos" }
   ];
 
   const defaultActionCriteria = [
@@ -160,6 +160,9 @@
 
   function migrateData(data) {
     data.people = data.people || people;
+    data.people.forEach((person) => {
+      if (person.role === "manager") person.role = "usuario";
+    });
     data.findings = data.findings || [];
     data.emails = data.emails || [];
     data.imports = data.imports || [];
@@ -277,9 +280,9 @@
   }
 
   function personOptions(selected, includeAll) {
-    const managers = state.data.people.filter((p) => p.role === "manager");
+    const users = state.data.people.filter((p) => p.role === "usuario");
     const base = includeAll ? [{ id: "Todos", name: "Todos" }] : [{ id: "", name: "Sin asignar" }];
-    return base.concat(managers).map((p) => `<option value="${esc(p.id)}" ${p.id === selected ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+    return base.concat(users).map((p) => `<option value="${esc(p.id)}" ${p.id === selected ? "selected" : ""}>${esc(p.name)}</option>`).join("");
   }
 
   function siteCatalog() {
@@ -329,7 +332,7 @@
           </div>
           <div class="profile">
             <label>Cuenta activa</label>
-            <select data-action="switch-user">${state.data.people.map((p) => `<option value="${p.id}" ${p.id === user.id ? "selected" : ""}>${esc(p.name)} · ${p.role === "admin" ? "Admin" : "Responsable"}</option>`).join("")}</select>
+            <select data-action="switch-user">${state.data.people.map((p) => `<option value="${p.id}" ${p.id === user.id ? "selected" : ""}>${esc(p.name)} · ${p.role === "admin" ? "Admin" : "Usuario"}</option>`).join("")}</select>
           </div>
           <nav class="nav">
             ${navButton("dashboard", "Dashboard")}
@@ -675,7 +678,7 @@
           <div class="notice">Formato recomendado: nombre,correo,area,rol. Si el correo o nombre ya existe, se actualiza.</div>
           <div class="field" style="margin-top:12px">
             <label>Listado CSV</label>
-            <textarea data-people-csv placeholder="nombre,correo,area,rol&#10;Mauricio Munoz,mauricio@empresa.cl,Produccion,manager&#10;Karina Espinoza,karina@empresa.cl,Prevencion,manager"></textarea>
+            <textarea data-people-csv placeholder="nombre,correo,area,rol&#10;Mauricio Munoz,mauricio@empresa.cl,Produccion,usuario&#10;Karina Espinoza,karina@empresa.cl,Prevencion,usuario"></textarea>
           </div>
           <div class="field" style="margin-top:12px">
             <label>O cargar archivo CSV</label>
@@ -703,7 +706,7 @@
                   <td><input value="${esc(p.name)}" data-person-field="name" data-person-id="${esc(p.id)}"></td>
                   <td><input type="email" value="${esc(p.email)}" data-person-field="email" data-person-id="${esc(p.id)}"></td>
                   <td><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
-                  <td><select data-person-field="role" data-person-id="${esc(p.id)}">${options(["admin", "manager"], p.role)}</select></td>
+                  <td><select data-person-field="role" data-person-id="${esc(p.id)}">${options(["admin", "usuario"], p.role)}</select></td>
                   <td>${visibleFindings().filter((finding) => finding.ownerId === p.id && finding.status !== "Cerrado").length}</td>
                 </tr>
               `).join("")}
@@ -874,7 +877,7 @@
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
     document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
-      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol\nMauricio Munoz,mauricio.munoz@empresa.cl,Produccion,manager\nRuben Maure,ruben.maure@empresa.cl,Terreno,manager\nKarina Espinoza,karina.espinoza@empresa.cl,Prevencion,manager\nJoaquin Atena,joaquin.atena@empresa.cl,Electricidad,manager";
+      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol\nMauricio Munoz,mauricio.munoz@empresa.cl,Produccion,usuario\nRuben Maure,ruben.maure@empresa.cl,Terreno,usuario\nKarina Espinoza,karina.espinoza@empresa.cl,Prevencion,usuario\nJoaquin Atena,joaquin.atena@empresa.cl,Electricidad,usuario";
     });
     document.querySelectorAll("[data-action='delete-person']").forEach((button) => button.addEventListener("click", deletePerson));
     document.querySelector("[data-action='reset-data']")?.addEventListener("click", resetData);
@@ -1202,7 +1205,7 @@
           name: record.name,
           email: record.email || `${normalizeHeader(record.name).replace(/[^a-z0-9]+/g, ".")}@empresa.cl`,
           area: record.area || "Obra",
-          role: record.role || "manager"
+          role: record.role || "usuario"
         });
         created += 1;
       }
@@ -1231,7 +1234,8 @@
   }
 
   function normalizePersonRecord(record) {
-    const role = normalizeHeader(record.role) === "admin" || normalizeHeader(record.role).includes("administrador") ? "admin" : "manager";
+    const normalizedRole = normalizeHeader(record.role);
+    const role = normalizedRole === "admin" || normalizedRole.includes("administrador") ? "admin" : "usuario";
     return {
       name: String(record.name || "").trim(),
       email: String(record.email || "").trim(),
@@ -1409,7 +1413,7 @@
     const existing = state.data.people.find((p) => normalizeHeader(p.name) === normalized);
     if (existing) return existing.id;
     const id = `u-${normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}`;
-    const person = { id, name: cleaned, role: "manager", email: `${id.replace(/^u-/, "")}@empresa.cl`, area: "Obra" };
+    const person = { id, name: cleaned, role: "usuario", email: `${id.replace(/^u-/, "")}@empresa.cl`, area: "Obra" };
     state.data.people.push(person);
     return id;
   }
@@ -1463,7 +1467,7 @@
 
   function addPerson() {
     const index = state.data.people.length + 1;
-    const person = { id: `u-nuevo-${Date.now()}`, name: `Responsable ${index}`, role: "manager", email: `responsable${index}@empresa.cl`, area: "Obra" };
+    const person = { id: `u-nuevo-${Date.now()}`, name: `Usuario ${index}`, role: "usuario", email: `usuario${index}@empresa.cl`, area: "Obra" };
     state.data.people.push(person);
     saveData();
     render();
