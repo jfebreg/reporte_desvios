@@ -681,6 +681,7 @@
             <button class="btn secondary" data-action="check-backend">Probar backend</button>
             <button class="btn secondary" data-action="check-auto-import">Ver autoimportacion</button>
             <button class="btn secondary" data-action="check-google-sheets">Probar GSheet</button>
+            <button class="btn secondary" data-action="run-backend-reminders">Generar recordatorios backend</button>
           </div>
         </div>
         <div class="panel">
@@ -921,6 +922,7 @@
     document.querySelector("[data-action='check-backend']")?.addEventListener("click", checkBackend);
     document.querySelector("[data-action='check-auto-import']")?.addEventListener("click", checkAutoImport);
     document.querySelector("[data-action='check-google-sheets']")?.addEventListener("click", checkGoogleSheets);
+    document.querySelector("[data-action='run-backend-reminders']")?.addEventListener("click", runBackendReminders);
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
     document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
@@ -1302,6 +1304,24 @@
       addImportLog(`GSheet conectada: ${preview.rowCount || 0} filas detectadas. Encabezados: ${headers || "sin encabezados"}.`);
     } catch (error) {
       addImportLog(`No se pudo probar GSheet: ${error.message}.`);
+    }
+  }
+
+  async function runBackendReminders() {
+    if (!API_BASE_URL) {
+      addImportLog("No se pueden generar recordatorios backend sin API configurada.");
+      return;
+    }
+    try {
+      const response = await apiFetch("/api/jobs/reminders", { method: "POST" });
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      const payload = await response.json();
+      state.data = migrateData(payload.state || state.data);
+      remoteStateLoaded = true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      addImportLog(`Recordatorios backend procesados: ${payload.created || 0}.`);
+    } catch (error) {
+      addImportLog(`No se pudieron generar recordatorios backend: ${error.message}.`);
     }
   }
 

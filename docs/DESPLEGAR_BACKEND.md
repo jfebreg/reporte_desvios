@@ -15,6 +15,9 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
    - `APP_ORIGIN`: `https://jfebreg.github.io`
    - `API_TOKEN`: valor largo y dificil de adivinar.
    - `AUTO_IMPORT_MINUTES`: `15` para importar automaticamente cada 15 minutos, o `0` para desactivar.
+   - `AUTO_REMINDER_MINUTES`: `1440` para recordatorios diarios, o `0` para desactivar.
+   - `SENDGRID_API_KEY`: opcional para correos reales.
+   - `MAIL_FROM`: correo remitente autorizado.
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_SHEET_RANGE`
    - `GOOGLE_CLIENT_EMAIL`
@@ -61,6 +64,7 @@ GET  /api/google-sheets/preview
 GET  /api/state
 PUT  /api/state
 POST /api/import/google-sheets
+POST /api/jobs/reminders
 ```
 
 `GET /api/health` muestra si la importacion automatica esta activa y el resultado del ultimo intento.

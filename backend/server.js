@@ -2,6 +2,8 @@ const http = require("node:http");
 const { URL } = require("node:url");
 const { readState, writeState } = require("./src/store");
 const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
+const { getMailerStatus } = require("./src/mailer");
+const { runReminderJob } = require("./src/reminders");
 const { loadEnv } = require("./src/env");
 
 loadEnv();
@@ -10,7 +12,9 @@ const PORT = Number(process.env.PORT || 8787);
 const APP_ORIGIN = process.env.APP_ORIGIN || "*";
 const API_TOKEN = process.env.API_TOKEN || "";
 const AUTO_IMPORT_MINUTES = Number(process.env.AUTO_IMPORT_MINUTES || 0);
+const AUTO_REMINDER_MINUTES = Number(process.env.AUTO_REMINDER_MINUTES || 0);
 let lastAutoImport = null;
+let lastReminderRun = null;
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
@@ -32,7 +36,10 @@ const server = http.createServer(async (req, res) => {
         service: "reporte-desvios-api",
         auth: API_TOKEN ? "enabled" : "disabled",
         autoImportMinutes: AUTO_IMPORT_MINUTES,
-        lastAutoImport
+        autoReminderMinutes: AUTO_REMINDER_MINUTES,
+        lastAutoImport,
+        lastReminderRun,
+        mailer: getMailerStatus()
       });
       return;
     }
@@ -71,11 +78,26 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/api/emails") {
+      const state = await readState();
+      sendJson(res, 200, state.emails || []);
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/import/google-sheets") {
       const state = await readState();
       const nextState = await importFromGoogleSheets(state);
       await writeState(nextState);
       sendJson(res, 200, nextState);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/jobs/reminders") {
+      const state = await readState();
+      const result = await runReminderJob(state);
+      await writeState(result.state);
+      lastReminderRun = { at: new Date().toISOString(), ok: true, created: result.created };
+      sendJson(res, 200, { ok: true, created: result.created, state: result.state });
       return;
     }
 
@@ -89,6 +111,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Reporte Desvios API escuchando en http://localhost:${PORT}`);
   startAutoImport();
+  startAutoReminders();
 });
 
 function sendJson(res, status, payload) {
@@ -138,5 +161,28 @@ async function runAutoImport() {
   } catch (error) {
     lastAutoImport = { at: new Date().toISOString(), ok: false, error: error.message };
     console.error(`Importacion automatica fallo: ${error.message}`);
+  }
+}
+
+function startAutoReminders() {
+  if (!AUTO_REMINDER_MINUTES || AUTO_REMINDER_MINUTES < 1) {
+    console.log("Recordatorios automaticos desactivados. Configura AUTO_REMINDER_MINUTES para activarlos.");
+    return;
+  }
+  const intervalMs = AUTO_REMINDER_MINUTES * 60 * 1000;
+  console.log(`Recordatorios automaticos activados cada ${AUTO_REMINDER_MINUTES} minutos.`);
+  setInterval(runAutoReminders, intervalMs);
+}
+
+async function runAutoReminders() {
+  try {
+    const state = await readState();
+    const result = await runReminderJob(state);
+    await writeState(result.state);
+    lastReminderRun = { at: new Date().toISOString(), ok: true, created: result.created };
+    console.log(`Recordatorios automaticos OK: ${result.created} procesados.`);
+  } catch (error) {
+    lastReminderRun = { at: new Date().toISOString(), ok: false, error: error.message };
+    console.error(`Recordatorios automaticos fallaron: ${error.message}`);
   }
 }
