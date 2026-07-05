@@ -1,6 +1,6 @@
 const http = require("node:http");
 const { URL } = require("node:url");
-const { readState, writeState } = require("./src/store");
+const { readState, writeState, getStorageStatus } = require("./src/store");
 const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
 const { getMailerStatus } = require("./src/mailer");
 const { runReminderJob } = require("./src/reminders");
@@ -39,7 +39,8 @@ const server = http.createServer(async (req, res) => {
         autoReminderMinutes: AUTO_REMINDER_MINUTES,
         lastAutoImport,
         lastReminderRun,
-        mailer: getMailerStatus()
+        mailer: getMailerStatus(),
+        storage: getStorageStatus()
       });
       return;
     }

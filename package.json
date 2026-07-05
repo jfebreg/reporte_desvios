@@ -2,6 +2,9 @@
   "name": "reporte-desvios",
   "version": "0.2.0",
   "private": true,
+  "dependencies": {
+    "pg": "^8.12.0"
+  },
   "scripts": {
     "backend": "node backend/server.js",
     "seed": "node backend/scripts/seed.js",

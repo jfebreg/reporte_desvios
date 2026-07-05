@@ -16,13 +16,16 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
    - `API_TOKEN`: valor largo y dificil de adivinar.
    - `AUTO_IMPORT_MINUTES`: `15` para importar automaticamente cada 15 minutos, o `0` para desactivar.
    - `AUTO_REMINDER_MINUTES`: `1440` para recordatorios diarios, o `0` para desactivar.
+   - `DATABASE_URL`: conexion PostgreSQL.
+   - `DATABASE_SSL`: `true` en servicios cloud usuales.
    - `SENDGRID_API_KEY`: opcional para correos reales.
    - `MAIL_FROM`: correo remitente autorizado.
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_SHEET_RANGE`
    - `GOOGLE_CLIENT_EMAIL`
    - `GOOGLE_PRIVATE_KEY`
-5. Cuando Render entregue la URL, edita `config.js`:
+5. Recomendado: crea una base PostgreSQL y copia su `DATABASE_URL`.
+6. Cuando Render entregue la URL, edita `config.js`:
 
 ```js
 window.REPORTE_DESVIOS_CONFIG = {
@@ -31,7 +34,7 @@ window.REPORTE_DESVIOS_CONFIG = {
 };
 ```
 
-6. Sube `config.js` a GitHub para que GitHub Pages use el backend.
+7. Sube `config.js` a GitHub para que GitHub Pages use el backend.
 
 ## Opcion local para prueba
 
@@ -68,10 +71,11 @@ POST /api/jobs/reminders
 ```
 
 `GET /api/health` muestra si la importacion automatica esta activa y el resultado del ultimo intento.
+Tambien muestra si el backend esta usando almacenamiento `json` o `postgres`.
 
 ## Pendiente para produccion robusta
 
-La version actual guarda estado en `backend/data/state.json`. Esto sirve para una primera prueba real, pero para produccion estable debe reemplazarse por PostgreSQL usando `docs/productivo-schema.sql`.
+Si no configuras `DATABASE_URL`, el backend guarda estado en `backend/data/state.json`. Para uso real con varios usuarios, configura PostgreSQL. Ver `docs/POSTGRES.md`.
 
 ## Nota de seguridad
 

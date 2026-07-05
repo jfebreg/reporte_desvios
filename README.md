@@ -48,6 +48,7 @@ El repo incluye un backend Node sin dependencias externas en `backend/`.
 - `API_TOKEN`: token opcional para proteger la API.
 - `AUTO_IMPORT_MINUTES`: activa importacion automatica periodica desde Google Sheets.
 - `AUTO_REMINDER_MINUTES`: activa recordatorios automaticos.
+- `DATABASE_URL`: si se configura, el backend guarda el estado en PostgreSQL; si no, usa `backend/data/state.json`.
 
 Nota: `API_TOKEN` es una proteccion basica. Para uso productivo completo se requiere login real por usuario.
 

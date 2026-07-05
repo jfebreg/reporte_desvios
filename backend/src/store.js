@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
+let pgPool = null;
 
 const emptyState = {
   findings: [],
@@ -25,6 +26,7 @@ const emptyState = {
 };
 
 async function readState() {
+  if (usePostgres()) return readPostgresState();
   try {
     const raw = await fs.readFile(STATE_FILE, "utf8");
     return normalizeState(JSON.parse(raw));
@@ -35,8 +37,66 @@ async function readState() {
 }
 
 async function writeState(state) {
+  if (usePostgres()) return writePostgresState(state);
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(STATE_FILE, JSON.stringify(normalizeState(state), null, 2), "utf8");
+}
+
+function getStorageStatus() {
+  return {
+    provider: usePostgres() ? "postgres" : "json",
+    configured: usePostgres(),
+    file: usePostgres() ? "" : STATE_FILE
+  };
+}
+
+function usePostgres() {
+  return Boolean(process.env.DATABASE_URL);
+}
+
+async function readPostgresState() {
+  const pool = getPgPool();
+  await ensurePostgresSchema(pool);
+  const result = await pool.query("select state from app_state where key = $1", ["main"]);
+  if (!result.rows.length) return structuredClone(emptyState);
+  return normalizeState(result.rows[0].state);
+}
+
+async function writePostgresState(state) {
+  const pool = getPgPool();
+  await ensurePostgresSchema(pool);
+  await pool.query(
+    `insert into app_state (key, state, updated_at)
+     values ($1, $2::jsonb, now())
+     on conflict (key)
+     do update set state = excluded.state, updated_at = now()`,
+    ["main", JSON.stringify(normalizeState(state))]
+  );
+}
+
+async function ensurePostgresSchema(pool) {
+  await pool.query(`
+    create table if not exists app_state (
+      key text primary key,
+      state jsonb not null,
+      updated_at timestamptz not null default now()
+    )
+  `);
+}
+
+function getPgPool() {
+  if (pgPool) return pgPool;
+  let Pool;
+  try {
+    ({ Pool } = require("pg"));
+  } catch (error) {
+    throw new Error("DATABASE_URL esta configurado, pero falta instalar dependencia pg. Ejecuta npm install.");
+  }
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }
+  });
+  return pgPool;
 }
 
 function normalizeState(state) {
@@ -52,4 +112,4 @@ function normalizeState(state) {
   };
 }
 
-module.exports = { readState, writeState };
+module.exports = { readState, writeState, getStorageStatus };
