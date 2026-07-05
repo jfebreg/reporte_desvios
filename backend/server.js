@@ -25,11 +25,6 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    if (!isAuthorized(req)) {
-      sendJson(res, 401, { error: "unauthorized" });
-      return;
-    }
-
     if (req.method === "GET" && url.pathname === "/api/health") {
       sendJson(res, 200, {
         ok: true,
@@ -42,6 +37,11 @@ const server = http.createServer(async (req, res) => {
         mailer: getMailerStatus(),
         storage: getStorageStatus()
       });
+      return;
+    }
+
+    if (!isAuthorized(req)) {
+      sendJson(res, 401, { error: "unauthorized" });
       return;
     }
 

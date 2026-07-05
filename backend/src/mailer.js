@@ -1,13 +1,14 @@
 function getMailerStatus() {
+  const configured = isSendGridConfigured();
   return {
-    provider: process.env.SENDGRID_API_KEY ? "sendgrid" : "simulado",
+    provider: configured ? "sendgrid" : "simulado",
     from: process.env.MAIL_FROM || "",
-    configured: Boolean(process.env.SENDGRID_API_KEY && process.env.MAIL_FROM)
+    configured
   };
 }
 
 async function sendMail({ to, subject, body }) {
-  if (!process.env.SENDGRID_API_KEY || !process.env.MAIL_FROM) {
+  if (!isSendGridConfigured()) {
     return { status: "simulated", provider: "simulado" };
   }
 
@@ -34,6 +35,11 @@ async function sendMail({ to, subject, body }) {
     provider: "sendgrid",
     providerMessageId: response.headers.get("x-message-id") || ""
   };
+}
+
+function isSendGridConfigured() {
+  const apiKey = process.env.SENDGRID_API_KEY || "";
+  return Boolean(apiKey && apiKey !== "disabled" && process.env.MAIL_FROM);
 }
 
 module.exports = { getMailerStatus, sendMail };
