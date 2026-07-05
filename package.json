@@ -6,6 +6,7 @@
     "pg": "^8.12.0"
   },
   "scripts": {
+    "start": "node backend/server.js",
     "backend": "node backend/server.js",
     "seed": "node backend/scripts/seed.js",
     "check-google": "node backend/scripts/check-google.js",

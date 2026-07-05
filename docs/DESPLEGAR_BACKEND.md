@@ -4,13 +4,14 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
 
 ## Opcion simple: Render
 
-1. Entra a Render y crea un `Web Service`.
+1. Entra a Render y crea un `Blueprint`, o crea manualmente un `Web Service`.
 2. Conecta el repositorio `jfebreg/reporte_desvios`.
-3. Configura:
+3. Si usas Blueprint, Render leera `render.yaml`.
+4. Si lo haces manual, configura:
    - Runtime: Node
-   - Build command: dejar vacio
-   - Start command: `node backend/server.js`
-4. Variables de entorno:
+   - Build command: `npm install`
+   - Start command: `npm start`
+5. Variables de entorno:
    - `PORT`: Render lo define automaticamente.
    - `APP_ORIGIN`: `https://jfebreg.github.io`
    - `API_TOKEN`: valor largo y dificil de adivinar.
@@ -24,8 +25,8 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
    - `GOOGLE_SHEET_RANGE`
    - `GOOGLE_CLIENT_EMAIL`
    - `GOOGLE_PRIVATE_KEY`
-5. Recomendado: crea una base PostgreSQL y copia su `DATABASE_URL`.
-6. Cuando Render entregue la URL, edita `config.js`:
+6. Recomendado: crea una base PostgreSQL y copia su `DATABASE_URL`.
+7. Cuando Render entregue la URL, edita `config.js`:
 
 ```js
 window.REPORTE_DESVIOS_CONFIG = {
@@ -34,7 +35,9 @@ window.REPORTE_DESVIOS_CONFIG = {
 };
 ```
 
-7. Sube `config.js` a GitHub para que GitHub Pages use el backend.
+8. Sube `config.js` a GitHub para que GitHub Pages use el backend.
+
+El repositorio incluye `render.yaml` para partir mas rapido. Igual debes completar las variables secretas de Google y correo en el panel de Render.
 
 ## Opcion local para prueba
 

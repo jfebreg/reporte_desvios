@@ -1255,7 +1255,11 @@
       const response = await apiFetch("/api/health");
       if (!response.ok) throw new Error(`API ${response.status}`);
       const payload = await response.json();
-      addImportLog(`Backend conectado: ${payload.service || "API"} OK.`);
+      const storage = payload.storage?.provider || "desconocido";
+      const mailer = payload.mailer?.provider || "sin correo";
+      const importStatus = Number(payload.autoImportMinutes || 0) ? `autoimport ${payload.autoImportMinutes} min` : "autoimport off";
+      const reminderStatus = Number(payload.autoReminderMinutes || 0) ? `recordatorios ${payload.autoReminderMinutes} min` : "recordatorios off";
+      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. ${importStatus}. ${reminderStatus}.`);
     } catch (error) {
       addImportLog(`Backend no responde: ${error.message}.`);
     }
