@@ -1236,7 +1236,7 @@
     }
     try {
       const response = await apiFetch("/api/import/google-sheets", { method: "POST" });
-      if (!response.ok) throw new Error(`API ${response.status}`);
+      if (!response.ok) throw new Error(await responseErrorMessage(response, "API"));
       state.data = migrateData(await response.json());
       remoteStateLoaded = true;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
@@ -1253,7 +1253,7 @@
     }
     try {
       const response = await apiFetch("/api/health");
-      if (!response.ok) throw new Error(`API ${response.status}`);
+      if (!response.ok) throw new Error(await responseErrorMessage(response, "API"));
       const payload = await response.json();
       const storage = payload.storage?.provider || "desconocido";
       const mailer = payload.mailer?.provider || "sin correo";
@@ -1272,7 +1272,7 @@
     }
     try {
       const response = await apiFetch("/api/health");
-      if (!response.ok) throw new Error(`API ${response.status}`);
+      if (!response.ok) throw new Error(await responseErrorMessage(response, "API"));
       const payload = await response.json();
       const minutes = Number(payload.autoImportMinutes || 0);
       if (!minutes) {
@@ -1295,14 +1295,14 @@
     }
     try {
       const statusResponse = await apiFetch("/api/google-sheets/status");
-      if (!statusResponse.ok) throw new Error(`API status ${statusResponse.status}`);
+      if (!statusResponse.ok) throw new Error(await responseErrorMessage(statusResponse, "API status"));
       const status = await statusResponse.json();
       if (!status.configured) {
         addImportLog("Backend responde, pero Google Sheets no esta configurado. Revisa GOOGLE_SHEET_ID y credenciales.");
         return;
       }
       const previewResponse = await apiFetch("/api/google-sheets/preview");
-      if (!previewResponse.ok) throw new Error(`API preview ${previewResponse.status}`);
+      if (!previewResponse.ok) throw new Error(await responseErrorMessage(previewResponse, "API preview"));
       const preview = await previewResponse.json();
       const headers = (preview.headers || []).slice(0, 5).join(" | ");
       addImportLog(`GSheet conectada: ${preview.rowCount || 0} filas detectadas. Encabezados: ${headers || "sin encabezados"}.`);
@@ -1318,7 +1318,7 @@
     }
     try {
       const response = await apiFetch("/api/jobs/reminders", { method: "POST" });
-      if (!response.ok) throw new Error(`API ${response.status}`);
+      if (!response.ok) throw new Error(await responseErrorMessage(response, "API"));
       const payload = await response.json();
       state.data = migrateData(payload.state || state.data);
       remoteStateLoaded = true;
@@ -1339,6 +1339,16 @@
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
     if (API_TOKEN) headers.Authorization = `Bearer ${API_TOKEN}`;
     return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  }
+
+  async function responseErrorMessage(response, label) {
+    try {
+      const payload = await response.clone().json();
+      const detail = payload.message || payload.error || "";
+      return `${label} ${response.status}${detail ? `: ${detail}` : ""}`;
+    } catch (error) {
+      return `${label} ${response.status}`;
+    }
   }
 
   function importPeople() {
