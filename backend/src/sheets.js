@@ -100,20 +100,23 @@ function mapRow(header, row, rowNumber) {
     return index >= 0 ? String(row[index] || "").trim() : "";
   };
   const timestamp = get("marca temporal", "timestamp", "fecha");
-  const description = get("describe lo observado", "descripcion", "descripción", "hallazgo");
-  const location = get("ubicacion", "ubicación", "sector", "lugar");
+  const description = get("describe lo observado", "descripcion", "descripción", "hallazgo", "observado con tus palabras");
+  const location = get("donde ocurrio", "dónde ocurrió", "ubicacion", "ubicación", "sector", "lugar");
   const responsible = get("responsable", "asignado");
   const actionCriteria = normalizeActionCriteria(get("criterio", "accion", "acción", "plazo"));
+  const reportType = get("que estas reportando", "qué estás reportando", "tipo de reporte", "tipo");
+  const reporter = get("dinos si deseas", "reportante", "correo", "email", "nombre");
+  const initialPhoto = get("adjunta", "foto", "imagen", "archivo", "video", "audio");
 
   return {
-    sheetRowId: get("id", "folio", "codigo") || `SHEET-${rowNumber}`,
+    sheetRowId: get("id", "folio", "codigo") || buildSheetRowId(timestamp, description, rowNumber),
     detectedAt: normalizeDate(timestamp),
     site: get("obra") || DEFAULT_SITE,
     location,
     description,
-    initialPhoto: get("foto", "imagen", "archivo"),
-    reportType: get("tipo"),
-    reporter: get("reportante", "correo", "email"),
+    initialPhoto,
+    reportType,
+    reporter,
     responsible,
     actionCriteria,
     criticality: mapCriticality(get("criticidad", "gravedad")),
@@ -121,6 +124,14 @@ function mapRow(header, row, rowNumber) {
     evidenceName: get("evidencia"),
     closedAt: normalizeDate(get("cierre", "fecha cierre"))
   };
+}
+
+function buildSheetRowId(timestamp, description, rowNumber) {
+  const base = `${timestamp || `fila-${rowNumber}`}-${description || ""}`
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9._:-]+/g, "")
+    .slice(0, 90);
+  return `FORM-${base || rowNumber}`;
 }
 
 function resolveOwner(state, name) {
