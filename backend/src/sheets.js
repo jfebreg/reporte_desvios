@@ -7,12 +7,19 @@ async function importFromGoogleSheets(state) {
   if (values.length < 2) return withImport(state, "Google Sheets sin filas nuevas.");
 
   const header = values[0];
-  const existing = new Set((state.findings || []).map((finding) => finding.sheetRowId));
+  const existing = new Map((state.findings || []).map((finding) => [finding.sheetRowId, finding]));
   let imported = 0;
+  let updated = 0;
 
   values.slice(1).forEach((row, index) => {
     const record = mapRow(header, row, index + 2);
-    if (!record.sheetRowId || existing.has(record.sheetRowId)) return;
+    if (!record.sheetRowId) return;
+
+    const existingFinding = existing.get(record.sheetRowId);
+    if (existingFinding) {
+      if (updateExistingFinding(state, existingFinding, record)) updated += 1;
+      return;
+    }
 
     const ownerId = resolveOwner(state, record.responsible);
     const sequence = String((state.findings || []).length + 1).padStart(3, "0");
@@ -47,11 +54,11 @@ async function importFromGoogleSheets(state) {
         ...(ownerId ? [event("Sistema", `Responsable asignado: ${ownerName(state, ownerId)}`)] : [])
       ]
     });
-    existing.add(record.sheetRowId);
+    existing.set(record.sheetRowId, state.findings[0]);
     imported += 1;
   });
 
-  return withImport(state, `${imported} hallazgos importados automaticamente desde Google Sheets API.`);
+  return withImport(state, `${imported} hallazgos importados y ${updated} actualizados automaticamente desde Google Sheets API.`);
 }
 
 async function previewGoogleSheets() {
@@ -132,6 +139,46 @@ function buildSheetRowId(timestamp, description, rowNumber) {
     .replace(/[^A-Za-z0-9._:-]+/g, "")
     .slice(0, 90);
   return `FORM-${base || rowNumber}`;
+}
+
+function updateExistingFinding(state, finding, record) {
+  let changed = false;
+  changed = fillIfBlank(finding, "detectedAt", record.detectedAt) || changed;
+  changed = fillIfBlank(finding, "site", record.site || state.settings?.defaultSite || DEFAULT_SITE) || changed;
+  changed = fillIfBlank(finding, "location", record.location, ["Sin ubicacion"]) || changed;
+  changed = fillIfBlank(finding, "description", record.description, ["Sin descripcion"]) || changed;
+  changed = fillIfBlank(finding, "initialPhoto", record.initialPhoto) || changed;
+  changed = fillIfBlank(finding, "evidenceName", record.evidenceName) || changed;
+  changed = fillIfBlank(finding, "reportType", record.reportType) || changed;
+  changed = fillIfBlank(finding, "reporter", record.reporter) || changed;
+  changed = fillIfBlank(finding, "actionCriteria", record.actionCriteria) || changed;
+  changed = fillIfBlank(finding, "criticality", record.criticality, ["Media"]) || changed;
+  changed = fillIfBlank(finding, "priority", record.priority, ["Media"]) || changed;
+
+  if (!finding.ownerId && record.responsible) {
+    const ownerId = resolveOwner(state, record.responsible);
+    if (ownerId) {
+      finding.ownerId = ownerId;
+      finding.assignedEmailAt = finding.assignedEmailAt || todayIso();
+      finding.dueDate = finding.dueDate || dueDateFromCriteria(state, finding.assignedEmailAt, finding.actionCriteria);
+      finding.status = finding.status === "Nuevo" ? "Asignado" : finding.status;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    finding.history = finding.history || [];
+    finding.history.unshift(event("Sistema", "Datos actualizados desde Google Sheets API"));
+  }
+  return changed;
+}
+
+function fillIfBlank(target, key, value, blankValues = [""]) {
+  if (!value) return false;
+  const current = String(target[key] || "").trim();
+  if (current && !blankValues.some((blank) => normalize(blank) === normalize(current))) return false;
+  target[key] = value;
+  return true;
 }
 
 function resolveOwner(state, name) {
