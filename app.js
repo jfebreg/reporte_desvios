@@ -689,44 +689,44 @@
           ${state.reportMessage ? `<div class="notice">${esc(state.reportMessage)}</div>` : ""}
           <form id="internal-report-form" data-action="submit-report">
             <div class="field">
-              <label>Obra</label>
-              <select data-report-field="site">${options(siteCatalog(), state.data.settings.defaultSite || defaultSettings.defaultSite)}</select>
+              <label>1. Obra *</label>
+              <select data-report-field="site" required>${options(siteCatalog(), state.data.settings.defaultSite || defaultSettings.defaultSite)}</select>
             </div>
             <div class="field" style="margin-top:12px">
-              <label>Ubicacion</label>
+              <label>2. Ubicacion *</label>
               <input data-report-field="location" placeholder="Ej: excavacion estanque lyon" required>
             </div>
             <div class="field" style="margin-top:12px">
-              <label>Que estas reportando</label>
-              <select data-report-field="category">
+              <label>3. Que estas reportando *</label>
+              <select data-report-field="category" required>
                 ${options(["Condicion insegura", "Acto inseguro", "Incidente sin lesion", "Observacion preventiva", "Otro"], "Condicion insegura")}
               </select>
             </div>
             <div class="field" style="margin-top:12px">
-              <label>Describe lo observado con tus palabras</label>
+              <label>4. Describe lo observado con tus palabras *</label>
               <textarea data-report-field="description" placeholder="Describe el riesgo, condicion o acto observado" required></textarea>
             </div>
             <div class="form-grid" style="margin-top:12px">
               <div class="field">
-                <label>Tomar foto</label>
+                <label>Tomar foto (opcional)</label>
                 <input type="file" accept="image/*" capture="environment" data-report-photo>
               </div>
               <div class="field">
-                <label>Grabar video</label>
+                <label>Grabar video (opcional)</label>
                 <input type="file" accept="video/*" capture="environment" data-report-video>
               </div>
               <div class="field span-2">
-                <label>Adjuntar desde galeria</label>
+                <label>Adjuntar desde galeria (opcional)</label>
                 <input type="file" accept="image/*,video/*" data-report-file>
               </div>
             </div>
             <div class="form-grid" style="margin-top:12px">
               <div class="field">
-                <label>Nombre reportante</label>
+                <label>Nombre reportante (opcional)</label>
                 <input data-report-field="reporterName" value="${esc(reporterName)}" placeholder="Nombre">
               </div>
               <div class="field">
-                <label>Correo reportante</label>
+                <label>Correo reportante (opcional)</label>
                 <input type="email" data-report-field="reporterEmail" value="${esc(reporterEmail)}" placeholder="correo@empresa.cl">
               </div>
             </div>
@@ -1133,8 +1133,8 @@
     const reporterName = form.querySelector("[data-report-field='reporterName']")?.value.trim() || user?.name || "Reportante terreno";
     const reporterEmail = form.querySelector("[data-report-field='reporterEmail']")?.value.trim() || user?.email || "";
 
-    if (!location || !description) {
-      state.reportMessage = "Completa ubicacion y descripcion antes de enviar.";
+    if (!site || !location || !category || !description) {
+      state.reportMessage = "Completa los campos obligatorios 1, 2, 3 y 4 antes de enviar.";
       render();
       return;
     }
