@@ -4,6 +4,7 @@ const { readState, writeState, getStorageStatus } = require("./src/store");
 const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
 const { getMailerStatus, sendMail } = require("./src/mailer");
 const { getDriveStatus, uploadEvidenceFile } = require("./src/drive");
+const { saveEvidenceFile, readEvidenceFile } = require("./src/evidenceStore");
 const { runReminderJob } = require("./src/reminders");
 const { loadEnv } = require("./src/env");
 
@@ -39,6 +40,21 @@ const server = http.createServer(async (req, res) => {
         drive: getDriveStatus(),
         storage: getStorageStatus()
       });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/api/evidence/file/")) {
+      if (!isAuthorizedDownload(req, url)) {
+        sendJson(res, 401, { error: "unauthorized" });
+        return;
+      }
+      const fileId = decodeURIComponent(url.pathname.replace("/api/evidence/file/", ""));
+      const file = await readEvidenceFile(fileId);
+      if (!file) {
+        sendJson(res, 404, { error: "not_found" });
+        return;
+      }
+      sendFile(res, file);
       return;
     }
 
@@ -101,6 +117,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/evidence/file") {
+      const payload = await readJson(req);
+      const result = await saveEvidenceFile(payload);
+      const tokenQuery = API_TOKEN ? `?token=${encodeURIComponent(API_TOKEN)}` : "";
+      sendJson(res, 200, {
+        ...result,
+        url: `${externalBaseUrl(req)}/api/evidence/file/${encodeURIComponent(result.evidenceFileId)}${tokenQuery}`
+      });
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/import/google-sheets") {
       const state = await readState();
       const nextState = await importFromGoogleSheets(state);
@@ -145,10 +172,33 @@ function send(res, status, body) {
   res.end(body);
 }
 
+function sendFile(res, file) {
+  const name = encodeURIComponent(file.fileName || "evidencia");
+  res.writeHead(200, {
+    "Content-Type": file.mimeType || "application/octet-stream",
+    "Content-Disposition": `inline; filename*=UTF-8''${name}`,
+    "Access-Control-Allow-Origin": APP_ORIGIN,
+    "Cache-Control": "private, max-age=3600"
+  });
+  res.end(file.buffer);
+}
+
 function isAuthorized(req) {
   if (!API_TOKEN) return true;
   const header = req.headers.authorization || "";
   return header === `Bearer ${API_TOKEN}`;
+}
+
+function isAuthorizedDownload(req, url) {
+  if (!API_TOKEN) return true;
+  if (url.searchParams.get("token") === API_TOKEN) return true;
+  return isAuthorized(req);
+}
+
+function externalBaseUrl(req) {
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  return `${proto}://${host}`;
 }
 
 async function readJson(req) {

@@ -1180,12 +1180,15 @@
       }
     }
 
-    f.evidence.push({ ...evidence, note, uploadedBy: currentUser().name, uploadedAt: today.toISOString().slice(0, 10) });
+    const evidenceMessage = evidence.statusMessage || "Evidencia cargada correctamente.";
+    const evidenceRecord = { ...evidence };
+    delete evidenceRecord.statusMessage;
+    f.evidence.push({ ...evidenceRecord, note, uploadedBy: currentUser().name, uploadedAt: today.toISOString().slice(0, 10) });
     f.status = currentUser().role === "admin" ? f.status : "Completado por responsable";
     f.history.push(event(currentUser().name, `Subio evidencia: ${evidence.name}`));
     queueEmail("u-admin", `Evidencia pendiente ${f.id}`, `${ownerName(f.ownerId)} cargo evidencia para revision.`);
     state.formError = "";
-    state.evidenceMessage = "Evidencia cargada correctamente.";
+    state.evidenceMessage = evidenceMessage;
     saveData();
     render();
   }
@@ -1193,16 +1196,33 @@
   async function uploadEvidenceToDrive(finding, file) {
     if (!API_BASE_URL) throw new Error("backend no configurado");
     const base64 = await fileToBase64(file);
+    const payload = {
+      findingId: finding.id,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      base64
+    };
     const response = await apiFetch("/api/drive/evidence", {
       method: "POST",
-      body: JSON.stringify({
-        findingId: finding.id,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        base64
-      })
+      body: JSON.stringify(payload)
     });
-    if (!response.ok) throw new Error(await responseErrorMessage(response, "API Drive"));
+    if (!response.ok) {
+      await responseErrorMessage(response, "API Drive");
+      const fallback = await uploadEvidenceToDatabase(payload);
+      return {
+        ...fallback,
+        statusMessage: "Drive no disponible por cuota/configuracion. Evidencia guardada en base de datos."
+      };
+    }
+    return response.json();
+  }
+
+  async function uploadEvidenceToDatabase(payload) {
+    const response = await apiFetch("/api/evidence/file", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(await responseErrorMessage(response, "API Evidencias"));
     return response.json();
   }
 

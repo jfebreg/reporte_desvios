@@ -10,6 +10,6 @@
     "backend": "node backend/server.js",
     "seed": "node backend/scripts/seed.js",
     "check-google": "node backend/scripts/check-google.js",
-    "check": "node --check app.js && node --check backend/server.js && node --check backend/src/env.js && node --check backend/src/store.js && node --check backend/src/googleAuth.js && node --check backend/src/sheets.js && node --check backend/src/mailer.js && node --check backend/src/reminders.js && node --check backend/scripts/check-google.js && node --check backend/scripts/seed.js"
+    "check": "node --check app.js && node --check backend/server.js && node --check backend/src/env.js && node --check backend/src/store.js && node --check backend/src/evidenceStore.js && node --check backend/src/googleAuth.js && node --check backend/src/sheets.js && node --check backend/src/mailer.js && node --check backend/src/reminders.js && node --check backend/scripts/check-google.js && node --check backend/scripts/seed.js"
   }
 }
