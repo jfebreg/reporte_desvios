@@ -19,7 +19,6 @@ const emptyState = {
     { id: "2-semanas", label: "2 semanas", days: 14, priority: "Baja" }
   ],
   settings: {
-    formUrl: "https://forms.google.com/",
     defaultSite: "Aduccion Lyon Valparaiso / Terratunel SpA",
     sites: ["Aduccion Lyon Valparaiso / Terratunel SpA"]
   }

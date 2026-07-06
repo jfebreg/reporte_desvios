@@ -3,7 +3,6 @@ const { URL } = require("node:url");
 const { readState, writeState, getStorageStatus } = require("./src/store");
 const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
 const { getMailerStatus, sendMail } = require("./src/mailer");
-const { getDriveStatus, uploadEvidenceFile } = require("./src/drive");
 const { saveEvidenceFile, readEvidenceFile } = require("./src/evidenceStore");
 const { runReminderJob } = require("./src/reminders");
 const { loadEnv } = require("./src/env");
@@ -37,7 +36,6 @@ const server = http.createServer(async (req, res) => {
         lastAutoImport,
         lastReminderRun,
         mailer: getMailerStatus(),
-        drive: getDriveStatus(),
         storage: getStorageStatus()
       });
       return;
@@ -106,13 +104,6 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/emails/send") {
       const payload = await readJson(req);
       const result = await sendOutboundEmail(payload);
-      sendJson(res, 200, result);
-      return;
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/drive/evidence") {
-      const payload = await readJson(req);
-      const result = await uploadEvidenceFile(payload);
       sendJson(res, 200, result);
       return;
     }

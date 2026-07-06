@@ -4,7 +4,7 @@ Este documento define el paso desde el MVP publicado en GitHub Pages hacia una p
 
 ## Objetivo
 
-Convertir la demo estatica en un sistema con datos compartidos, usuarios reales, auditoria, importacion automatica desde Google Sheets, evidencias en Google Drive y correos reales.
+Convertir la demo estatica en un sistema con datos compartidos, usuarios reales, auditoria, formulario interno desde QR, evidencias administradas por el backend y correos reales.
 
 ## Arquitectura Recomendada
 
@@ -27,10 +27,10 @@ Convertir la demo estatica en un sistema con datos compartidos, usuarios reales,
    - Google Workspace o Microsoft Entra ID.
    - Roles internos: administrador y responsable.
 
-5. Integraciones Google
-   - Google Sheets API o Apps Script para leer respuestas nuevas.
-   - Google Drive API para evidencias.
-   - Gmail API o SendGrid para correos.
+5. Integraciones externas
+   - Google Sheets API solo para importar datos historicos o de respaldo.
+   - Backend/PostgreSQL para evidencias internas.
+   - Gmail API, SendGrid o Amazon SES para correos.
 
 6. Tareas automaticas
    - Importar nuevos registros desde Sheets cada 5-15 minutos.
@@ -40,13 +40,13 @@ Convertir la demo estatica en un sistema con datos compartidos, usuarios reales,
 
 ## Flujo Productivo
 
-1. Google Form recibe reporte.
-2. Google Sheet almacena la respuesta original.
-3. Backend importa filas nuevas y registra `source_row_id`.
+1. QR abre el formulario interno de la web.
+2. El backend registra el hallazgo y adjuntos en la base oficial.
+3. Google Sheets queda solo como respaldo o importacion historica.
 4. Administrador clasifica y asigna responsable.
 5. Backend envia correo real.
 6. Responsable entra con su cuenta, gestiona y sube evidencia.
-7. Evidencia se guarda en Drive y se vincula al hallazgo.
+7. Evidencia se guarda en el backend y se vincula al hallazgo.
 8. Administrador aprueba cierre u observa.
 9. Dashboard consulta la base de datos y no el navegador local.
 
@@ -58,12 +58,13 @@ Convertir la demo estatica en un sistema con datos compartidos, usuarios reales,
 - PostgreSQL.
 - Login.
 - CRUD de hallazgos y personas.
-- Importacion automatica desde Google Sheet.
+- Formulario interno desde QR.
+- Importacion automatica desde Google Sheet solo como respaldo.
 - Dashboard con datos reales.
 
 ### Fase 2: Gestion operacional
 
-- Evidencias reales en Drive.
+- Evidencias internas con descarga desde backend.
 - Correos reales.
 - Recordatorios programados.
 - Historial/auditoria completo.
@@ -82,8 +83,7 @@ Convertir la demo estatica en un sistema con datos compartidos, usuarios reales,
 - URL o ID de Google Sheet.
 - Nombre exacto de la pestana de respuestas.
 - Encabezados actuales del formulario.
-- Cuenta Google/Workspace que controlara Sheets y Drive.
-- Carpeta Drive destino para evidencias.
+- Cuenta Google/Workspace solo si se mantendra importacion desde Sheets.
 - Dominio/correos autorizados.
 - Lista inicial de usuarios y roles.
 - Definicion de obras.

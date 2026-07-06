@@ -54,8 +54,9 @@ create table findings (
 create table finding_evidence (
   id uuid primary key default gen_random_uuid(),
   finding_id uuid not null references findings(id) on delete cascade,
-  drive_file_id text,
   file_name text not null,
+  mime_type text,
+  file_data bytea,
   file_url text,
   note text,
   uploaded_by uuid references users(id),

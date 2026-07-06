@@ -4,6 +4,7 @@
   const today = new Date("2026-07-03T12:00:00");
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
+  const PUBLIC_REPORT_MODE = new URLSearchParams(window.location.search).has("reportar");
   let remoteStateLoaded = false;
 
   const people = [
@@ -21,7 +22,6 @@
   ];
 
   const defaultSettings = {
-    formUrl: "https://forms.google.com/",
     defaultSite: "Aducción Lyon Valparaíso / Terratunel SpA",
     sites: ["Aducción Lyon Valparaíso / Terratunel SpA"]
   };
@@ -143,7 +143,7 @@
   ];
 
   const state = {
-    view: "dashboard",
+    view: PUBLIC_REPORT_MODE ? "report" : "dashboard",
     currentUserId: sessionStorage.getItem(SESSION_KEY) || "",
     filters: { site: "Todos", status: "Todos", criticality: "Todos", priority: "Todos", ownerId: "Todos", from: "", to: "" },
     chartVisibility: { status: true, criticality: true, priority: true, compliance: true, trend: true, progress: true, pendingOwners: true, slowOwners: true, avgResolve: true, deadline: true, upcoming: true, nonProcessable: true },
@@ -356,6 +356,15 @@
 
   function render() {
     refreshOverdue();
+    if (PUBLIC_REPORT_MODE) {
+      document.getElementById("app").innerHTML = `
+        <main class="content public-report">
+          ${renderReport()}
+        </main>
+      `;
+      bindEvents();
+      return;
+    }
     const user = currentUser();
     if (!user) {
       document.getElementById("app").innerHTML = renderLogin();
@@ -488,6 +497,13 @@
         <div class="field"><label>&nbsp;</label><button class="btn secondary" data-action="clear-filters">Limpiar filtros</button></div>
       </section>
     `;
+  }
+
+  function reportQrUrl() {
+    const url = new URL(window.location.href);
+    url.search = "?reportar=1";
+    url.hash = "";
+    return url.toString();
   }
 
   function renderDashboard() {
@@ -661,7 +677,10 @@
   }
 
   function renderReport() {
-    const formUrl = state.data.settings.formUrl || defaultSettings.formUrl;
+    const user = currentUser();
+    const reporterName = user?.name || "";
+    const reporterEmail = user?.email || "";
+    const canConfigure = user?.role === "admin" && !PUBLIC_REPORT_MODE;
     return `
       ${renderTop("Reportar", "Ingreso interno de hallazgos directo a la plataforma.", `<button class="btn" type="submit" form="internal-report-form">Enviar reporte</button>`)}
       <section class="grid two-col">
@@ -688,17 +707,17 @@
               <textarea data-report-field="description" placeholder="Describe el riesgo, condicion o acto observado" required></textarea>
             </div>
             <div class="field" style="margin-top:12px">
-              <label>Adjuntar imagen, video o audio</label>
-              <input type="file" accept="image/*,video/*,audio/*" data-report-file>
+              <label>Tomar o adjuntar imagen/video</label>
+              <input type="file" accept="image/*,video/*" capture="environment" data-report-file>
             </div>
             <div class="form-grid" style="margin-top:12px">
               <div class="field">
                 <label>Nombre reportante</label>
-                <input data-report-field="reporterName" value="${esc(currentUser().name || "")}" placeholder="Nombre">
+                <input data-report-field="reporterName" value="${esc(reporterName)}" placeholder="Nombre">
               </div>
               <div class="field">
                 <label>Correo reportante</label>
-                <input type="email" data-report-field="reporterEmail" value="${esc(currentUser().email || "")}" placeholder="correo@empresa.cl">
+                <input type="email" data-report-field="reporterEmail" value="${esc(reporterEmail)}" placeholder="correo@empresa.cl">
               </div>
             </div>
             <div class="actions" style="justify-content:flex-start;margin-top:12px">
@@ -706,7 +725,7 @@
             </div>
           </form>
         </div>
-        <div class="panel">
+        ${canConfigure ? `<div class="panel">
           <div class="panel-header"><h3>Configuracion</h3></div>
           <div class="field">
             <label>Obra por defecto</label>
@@ -717,14 +736,14 @@
             <textarea data-setting="sitesText">${esc(siteCatalog().join("\n"))}</textarea>
           </div>
           <div class="field" style="margin-top:12px">
-            <label>Link antiguo Google Form</label>
-            <input type="url" value="${esc(formUrl)}" data-setting="formUrl" placeholder="https://forms.gle/...">
+            <label>Link para QR</label>
+            <input readonly value="${esc(reportQrUrl())}">
           </div>
           <div class="actions" style="justify-content:flex-start;margin-top:12px">
             <button class="btn secondary" data-action="save-settings">Guardar configuracion</button>
-            <a class="btn secondary" href="${esc(formUrl)}" target="_blank" rel="noreferrer">Abrir Form antiguo</a>
+            <a class="btn secondary" href="${esc(reportQrUrl())}" target="_blank" rel="noreferrer">Abrir link QR</a>
           </div>
-        </div>
+        </div>` : ""}
         <div class="panel">
           <div class="panel-header"><h3>Flujo actual</h3></div>
           <ul class="timeline">
@@ -808,7 +827,7 @@
           </div>
         </div>
         <div class="panel">
-          <div class="notice">Acepta el CSV original de Google Forms con encabezados o el formato simple: sheetRowId,fecha,obra,ubicacion,descripcion,foto</div>
+          <div class="notice">Acepta CSV historico con encabezados o el formato simple: sheetRowId,fecha,obra,ubicacion,descripcion,foto</div>
           <div class="field" style="margin-top:12px">
             <label>CSV desde Sheets</label>
             <textarea data-import-csv placeholder="FORM-1006,2026-07-03,Torre Sur,Piso 3,Andamio sin rodapie,https://..."></textarea>
@@ -974,7 +993,7 @@
                 </ul>
                 ${canManage ? `
                   <div class="field" style="margin-top:12px"><label>Archivo de evidencia</label><input type="file" data-evidence-file></div>
-                  <div class="field" style="margin-top:12px"><label>O enlace Drive/manual</label><input data-evidence-name placeholder="https://drive.google.com/..."></div>
+                  <div class="field" style="margin-top:12px"><label>O enlace/manual</label><input data-evidence-name placeholder="https://..."></div>
                   <div class="field" style="margin-top:8px"><label>Nota de evidencia</label><textarea data-evidence-note placeholder="Describe la accion correctiva realizada"></textarea></div>
                   <button class="btn secondary" type="button" style="margin-top:10px" data-action="add-evidence" data-id="${f.id}">Subir evidencia</button>
                 ` : ""}
@@ -1048,7 +1067,7 @@
     document.querySelector("[data-action='reactivate-finding']")?.addEventListener("click", reactivateFinding);
     document.querySelector("[data-action='export-findings']")?.addEventListener("click", exportFindingsCsv);
     document.querySelector("[data-action='sample-csv']")?.addEventListener("click", () => {
-      document.querySelector("[data-import-csv]").value = "FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://drive.google.com/foto1\nFORM-1007,2026-07-03,Torre Sur,Acceso camion,Peaton circula sin segregacion de ruta,";
+      document.querySelector("[data-import-csv]").value = "FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://ejemplo.cl/foto1\nFORM-1007,2026-07-03,Torre Sur,Acceso camion,Peaton circula sin segregacion de ruta,";
     });
     document.querySelector("[data-action='import-csv']")?.addEventListener("click", importCsv);
     document.querySelector("[data-action='import-google-sheets']")?.addEventListener("click", importGoogleSheets);
@@ -1100,16 +1119,17 @@
     const location = form.querySelector("[data-report-field='location']")?.value.trim();
     const category = form.querySelector("[data-report-field='category']")?.value || "Condicion insegura";
     const description = form.querySelector("[data-report-field='description']")?.value.trim();
-    const reporterName = form.querySelector("[data-report-field='reporterName']")?.value.trim() || currentUser().name;
-    const reporterEmail = form.querySelector("[data-report-field='reporterEmail']")?.value.trim() || currentUser().email;
+    const user = currentUser();
+    const reporterName = form.querySelector("[data-report-field='reporterName']")?.value.trim() || user?.name || "Reportante terreno";
+    const reporterEmail = form.querySelector("[data-report-field='reporterEmail']")?.value.trim() || user?.email || "";
 
     if (!location || !description) {
       state.reportMessage = "Completa ubicacion y descripcion antes de enviar.";
       render();
       return;
     }
-    if (file && file.size > 8 * 1024 * 1024) {
-      state.reportMessage = "El adjunto supera 8 MB. Usa un archivo mas liviano.";
+    if (file && file.size > 25 * 1024 * 1024) {
+      state.reportMessage = "El adjunto supera 25 MB. Usa un archivo mas liviano.";
       render();
       return;
     }
@@ -1162,9 +1182,14 @@
     };
 
     state.data.findings.unshift(finding);
-    state.selectedId = finding.id;
-    state.view = "findings";
-    state.reportMessage = "";
+    if (PUBLIC_REPORT_MODE) {
+      state.selectedId = "";
+      state.reportMessage = `Reporte enviado correctamente. Codigo: ${finding.id}.`;
+    } else {
+      state.selectedId = finding.id;
+      state.view = "findings";
+      state.reportMessage = "";
+    }
     saveData();
     render();
   }
@@ -1286,24 +1311,30 @@
       render();
       return;
     }
-    if (file && file.size > 8 * 1024 * 1024) {
-      state.evidenceMessage = "El archivo supera 8 MB. Sube un archivo mas liviano o pega un enlace Drive.";
+    if (file && file.size > 25 * 1024 * 1024) {
+      state.evidenceMessage = "El archivo supera 25 MB. Sube un archivo mas liviano o pega un enlace.";
       render();
       return;
     }
 
     e.target.disabled = true;
     e.target.textContent = "Subiendo...";
-    state.evidenceMessage = file ? "Subiendo evidencia a Drive..." : "Guardando enlace de evidencia...";
+    state.evidenceMessage = file ? "Guardando evidencia..." : "Guardando enlace de evidencia...";
     let evidence = manualValue
       ? { name: manualValue, url: isUrl(manualValue) ? manualValue : "", provider: "manual" }
-      : { name: "evidencia-drive", url: "", provider: "manual" };
+      : { name: file?.name || "evidencia", url: "", provider: "manual" };
 
     if (file) {
       try {
-        evidence = await uploadEvidenceToDrive(f, file);
+        const base64 = await fileToBase64(file);
+        evidence = await uploadEvidenceToDatabase({
+          findingId: f.id,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          base64
+        });
       } catch (error) {
-        state.evidenceMessage = `No se pudo subir evidencia a Drive: ${error.message}`;
+        state.evidenceMessage = `No se pudo guardar evidencia: ${error.message}`;
         render();
         return;
       }
@@ -1320,30 +1351,6 @@
     state.evidenceMessage = evidenceMessage;
     saveData();
     render();
-  }
-
-  async function uploadEvidenceToDrive(finding, file) {
-    if (!API_BASE_URL) throw new Error("backend no configurado");
-    const base64 = await fileToBase64(file);
-    const payload = {
-      findingId: finding.id,
-      fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      base64
-    };
-    const response = await apiFetch("/api/drive/evidence", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-      await responseErrorMessage(response, "API Drive");
-      const fallback = await uploadEvidenceToDatabase(payload);
-      return {
-        ...fallback,
-        statusMessage: "Drive no disponible por cuota/configuracion. Evidencia guardada en base de datos."
-      };
-    }
-    return response.json();
   }
 
   async function uploadEvidenceToDatabase(payload) {
@@ -1600,7 +1607,7 @@
         assignedEmailAt,
         dueDate,
         status,
-        comments: record.comments || "Importado desde Google Forms.",
+        comments: record.comments || "Importado desde planilla historica.",
         evidence: record.evidenceName ? [{ name: record.evidenceName, uploadedBy: ownerName(ownerId), uploadedAt: record.closedAt || today.toISOString().slice(0, 10), note: "Evidencia importada desde Google Sheet." }] : [],
         closedAt: record.closedAt || "",
         history: [
@@ -1646,10 +1653,9 @@
       const payload = await response.json();
       const storage = payload.storage?.provider || "desconocido";
       const mailer = payload.mailer?.provider || "sin correo";
-      const drive = payload.drive?.configured ? "drive OK" : "drive sin configurar";
       const importStatus = Number(payload.autoImportMinutes || 0) ? `autoimport ${payload.autoImportMinutes} min` : "autoimport off";
       const reminderStatus = Number(payload.autoReminderMinutes || 0) ? `recordatorios ${payload.autoReminderMinutes} min` : "recordatorios off";
-      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. ${drive}. ${importStatus}. ${reminderStatus}.`);
+      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. Evidencias internas. ${importStatus}. ${reminderStatus}.`);
     } catch (error) {
       addImportLog(`Backend no responde: ${error.message}.`);
     }
@@ -1915,7 +1921,7 @@
       dueDate: "",
       closedAt: normalizeDate(closeDate),
       evidenceName,
-      comments: "Importado desde Google Forms."
+      comments: "Importado desde planilla historica."
     };
   }
 

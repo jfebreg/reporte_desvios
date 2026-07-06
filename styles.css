@@ -164,6 +164,11 @@ button {
   align-content: start;
 }
 
+.public-report {
+  width: min(980px, 100%);
+  margin: 0 auto;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;

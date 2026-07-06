@@ -15,6 +15,7 @@ Revisa `PUBLICAR.md`. La opcion recomendada para trabajar con GitHub es subir es
 ## Incluye
 
 - Roles de administrador y responsable.
+- Formulario interno para reportar desde QR.
 - Hallazgos con criticidad, prioridad, estado, responsable, vencimiento, comentarios, evidencias e historial.
 - Importacion desde Google Sheets mediante CSV.
 - Evita duplicados por `sheetRowId`.
@@ -29,9 +30,9 @@ Revisa `PUBLICAR.md`. La opcion recomendada para trabajar con GitHub es subir es
 
 Para una version productiva, reemplazar las partes simuladas por:
 
-- Google Sheets API para importar filas nuevas desde la hoja de respuestas.
+- Google Sheets API solo para importar datos historicos o de respaldo.
 - Base de datos real, por ejemplo PostgreSQL.
-- Google Drive API para subir evidencias a carpetas administradas.
+- Evidencias internas guardadas por el backend.
 - Gmail API, SendGrid o Amazon SES para enviar correos reales.
 - Autenticacion corporativa con Google Workspace o Microsoft Entra ID.
 
@@ -44,6 +45,8 @@ El repo incluye un backend Node sin dependencias externas en `backend/`.
 - `GET /api/state`: estado oficial compartido.
 - `PUT /api/state`: guarda cambios de la web.
 - `POST /api/import/google-sheets`: importa respuestas nuevas con Google Sheets API.
+- `POST /api/evidence/file`: guarda imagenes o videos de evidencia en el backend.
+- `GET /api/evidence/file/:id`: permite abrir evidencias guardadas.
 - `POST /api/jobs/reminders`: genera recordatorios de vencidos o proximos a vencer.
 - `API_TOKEN`: token opcional para proteger la API.
 - `AUTO_IMPORT_MINUTES`: activa importacion automatica periodica desde Google Sheets.
@@ -60,5 +63,5 @@ Incluye `render.yaml` para crear el servicio en Render con menos pasos.
 
 ```csv
 sheetRowId,fecha,obra,ubicacion,descripcion,foto
-FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://drive.google.com/foto1
+FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://ejemplo.cl/foto1
 ```
