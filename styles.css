@@ -320,6 +320,25 @@ button {
   font-size: 17px;
 }
 
+.qr-preview {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.qr-preview img {
+  width: 180px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
 .charts {
   grid-template-columns: repeat(3, minmax(220px, 1fr));
 }

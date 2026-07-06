@@ -749,9 +749,14 @@
             <label>Link para QR</label>
             <input readonly value="${esc(reportQrUrl())}">
           </div>
+          <div class="qr-preview">
+            <img src="./qr-reporte-hallazgos.png?v=required-fields-1" alt="QR para reportar hallazgos">
+            <span>Imprime este QR en terreno para abrir el formulario publico.</span>
+          </div>
           <div class="actions" style="justify-content:flex-start;margin-top:12px">
             <button class="btn secondary" data-action="save-settings">Guardar configuracion</button>
             <a class="btn secondary" href="${esc(reportQrUrl())}" target="_blank" rel="noreferrer">Abrir link QR</a>
+            <a class="btn secondary" href="./qr-reporte-hallazgos.png?v=required-fields-1" download="qr-reporte-hallazgos.png">Descargar QR</a>
           </div>
         </div>` : ""}
         <div class="panel">
