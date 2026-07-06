@@ -639,17 +639,19 @@
     return `
       ${renderTop("Hallazgos", user.role === "admin" ? "Clasifica, asigna, revisa evidencias y cierra hallazgos." : "Gestiona tus hallazgos asignados y sube evidencia.", actions)}
       ${renderFilters()}
+      ${user.role === "admin" ? renderBulkAssign(items) : ""}
       <section class="panel">
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
+                ${user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
               </tr>
             </thead>
             <tbody>
               ${items.map((f) => `
                 <tr>
+                  ${user.role === "admin" ? `<td><input type="checkbox" data-bulk-id="${esc(f.id)}" ${["Cerrado", "No procesable"].includes(f.status) ? "disabled" : ""}></td>` : ""}
                   <td><strong>${esc(f.id)}</strong></td>
                   <td>${esc(f.site)}</td>
                   <td>${esc(f.location)}</td>
@@ -661,9 +663,24 @@
                   <td><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span>${f.status === "No procesable" && f.nonProcessableReason ? `<div class="muted-note">${esc(f.nonProcessableReason)}</div>` : ""}</td>
                   <td><button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button></td>
                 </tr>
-              `).join("") || `<tr><td colspan="10" class="empty">No hay hallazgos para estos filtros</td></tr>`}
+              `).join("") || `<tr><td colspan="${user.role === "admin" ? "11" : "10"}" class="empty">No hay hallazgos para estos filtros</td></tr>`}
             </tbody>
           </table>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderBulkAssign(items) {
+    const assignable = items.filter((finding) => !["Cerrado", "No procesable"].includes(finding.status));
+    return `
+      <section class="panel">
+        <div class="panel-header"><h3>Gestion masiva</h3></div>
+        <div class="actions bulk-actions">
+          <button class="btn secondary" data-action="select-unassigned" ${assignable.some((f) => !f.ownerId) ? "" : "disabled"}>Seleccionar sin responsable</button>
+          <div class="field compact-field"><label>Responsable</label><select data-bulk-owner>${personOptions("", false)}</select></div>
+          <div class="field compact-field"><label>Criterio</label><select data-bulk-criterion>${actionCriteriaOptions("3 dias")}</select></div>
+          <button class="btn" data-action="bulk-assign">Asignar seleccionados</button>
         </div>
       </section>
     `;
@@ -906,6 +923,8 @@
       render();
     });
     document.querySelector("[data-action='new-finding']")?.addEventListener("click", createFinding);
+    document.querySelector("[data-action='select-unassigned']")?.addEventListener("click", selectUnassignedFindings);
+    document.querySelector("[data-action='bulk-assign']")?.addEventListener("click", bulkAssignFindings);
     document.querySelector("[data-action='save-finding']")?.addEventListener("submit", saveFindingForm);
     document.querySelector("[data-action='add-evidence']")?.addEventListener("click", addEvidence);
     document.querySelector("[data-action='approve']")?.addEventListener("click", approveFinding);
@@ -972,6 +991,39 @@
     };
     state.data.findings.unshift(finding);
     state.selectedId = finding.id;
+    saveData();
+    render();
+  }
+
+  function selectUnassignedFindings() {
+    document.querySelectorAll("[data-bulk-id]").forEach((input) => {
+      const finding = state.data.findings.find((item) => item.id === input.dataset.bulkId);
+      input.checked = Boolean(finding && !finding.ownerId && !["Cerrado", "No procesable"].includes(finding.status));
+    });
+  }
+
+  function bulkAssignFindings() {
+    const ids = Array.from(document.querySelectorAll("[data-bulk-id]:checked")).map((input) => input.dataset.bulkId);
+    const ownerId = document.querySelector("[data-bulk-owner]")?.value || "";
+    const actionCriteria = document.querySelector("[data-bulk-criterion]")?.value || "3 dias";
+    if (!ids.length || !ownerId) return;
+
+    let updated = 0;
+    ids.forEach((id) => {
+      const finding = state.data.findings.find((item) => item.id === id);
+      if (!finding || ["Cerrado", "No procesable"].includes(finding.status)) return;
+      finding.ownerId = ownerId;
+      finding.actionCriteria = actionCriteria;
+      finding.priority = mapPriority(actionCriteria);
+      finding.assignedEmailAt = today.toISOString().slice(0, 10);
+      finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, actionCriteria);
+      finding.status = finding.status === "Nuevo" || !finding.status ? "Asignado" : finding.status;
+      finding.history.push(event("Sistema", `Asignacion masiva a ${ownerName(ownerId)}. Plazo recalculado desde ${finding.assignedEmailAt}`));
+      queueEmail(ownerId, `Nuevo hallazgo asignado ${finding.id}`, `${finding.site} · ${finding.location}. Fecha limite: ${finding.dueDate}`);
+      updated += 1;
+    });
+
+    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${updated} hallazgos asignados masivamente a ${ownerName(ownerId)}.` });
     saveData();
     render();
   }

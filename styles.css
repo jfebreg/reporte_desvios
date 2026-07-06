@@ -153,6 +153,15 @@ button {
   justify-content: flex-end;
 }
 
+.bulk-actions {
+  justify-content: flex-start;
+  align-items: end;
+}
+
+.compact-field {
+  min-width: 190px;
+}
+
 .btn {
   min-height: 38px;
   border-radius: 7px;
