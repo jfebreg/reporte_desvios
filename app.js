@@ -925,10 +925,11 @@
               <section class="panel">
                 <div class="panel-header"><h3>Evidencias</h3></div>
                 <ul class="timeline">
-                  ${f.evidence.map((e) => `<li><strong>${esc(e.uploadedAt)} · ${esc(e.name)}</strong><br>${esc(e.note)}<br>Subido por ${esc(e.uploadedBy)}</li>`).join("") || `<li>Sin evidencia cargada.</li>`}
+                  ${f.evidence.map((e) => `<li><strong>${esc(e.uploadedAt)} · ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noreferrer">${esc(e.name)}</a>` : esc(e.name)}</strong><br>${esc(e.note)}<br>Subido por ${esc(e.uploadedBy)}</li>`).join("") || `<li>Sin evidencia cargada.</li>`}
                 </ul>
                 ${canManage ? `
-                  <div class="field" style="margin-top:12px"><label>Nombre archivo o enlace Drive</label><input data-evidence-name placeholder="foto-correccion.jpg"></div>
+                  <div class="field" style="margin-top:12px"><label>Archivo de evidencia</label><input type="file" data-evidence-file></div>
+                  <div class="field" style="margin-top:12px"><label>O enlace Drive/manual</label><input data-evidence-name placeholder="https://drive.google.com/..."></div>
                   <div class="field" style="margin-top:8px"><label>Nota de evidencia</label><textarea data-evidence-note placeholder="Describe la accion correctiva realizada"></textarea></div>
                   <button class="btn secondary" style="margin-top:10px" data-action="add-evidence" data-id="${f.id}">Subir evidencia</button>
                 ` : ""}
@@ -1141,16 +1142,61 @@
     render();
   }
 
-  function addEvidence(e) {
+  async function addEvidence(e) {
     const f = state.data.findings.find((item) => item.id === e.target.dataset.id);
-    const name = document.querySelector("[data-evidence-name]").value.trim() || "evidencia-drive";
+    const file = document.querySelector("[data-evidence-file]")?.files?.[0];
+    const manualValue = document.querySelector("[data-evidence-name]").value.trim();
     const note = document.querySelector("[data-evidence-note]").value.trim() || "Evidencia cargada para revision.";
-    f.evidence.push({ name, note, uploadedBy: currentUser().name, uploadedAt: today.toISOString().slice(0, 10) });
+    let evidence = manualValue
+      ? { name: manualValue, url: isUrl(manualValue) ? manualValue : "", provider: "manual" }
+      : { name: "evidencia-drive", url: "", provider: "manual" };
+
+    if (file) {
+      try {
+        evidence = await uploadEvidenceToDrive(f, file);
+      } catch (error) {
+        state.formError = `No se pudo subir evidencia a Drive: ${error.message}`;
+        render();
+        return;
+      }
+    }
+
+    f.evidence.push({ ...evidence, note, uploadedBy: currentUser().name, uploadedAt: today.toISOString().slice(0, 10) });
     f.status = currentUser().role === "admin" ? f.status : "Completado por responsable";
-    f.history.push(event(currentUser().name, `Subio evidencia: ${name}`));
+    f.history.push(event(currentUser().name, `Subio evidencia: ${evidence.name}`));
     queueEmail("u-admin", `Evidencia pendiente ${f.id}`, `${ownerName(f.ownerId)} cargo evidencia para revision.`);
+    state.formError = "";
     saveData();
     render();
+  }
+
+  async function uploadEvidenceToDrive(finding, file) {
+    if (!API_BASE_URL) throw new Error("backend no configurado");
+    const base64 = await fileToBase64(file);
+    const response = await apiFetch("/api/drive/evidence", {
+      method: "POST",
+      body: JSON.stringify({
+        findingId: finding.id,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        base64
+      })
+    });
+    if (!response.ok) throw new Error(await responseErrorMessage(response, "API Drive"));
+    return response.json();
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+      reader.onerror = () => reject(reader.error || new Error("No se pudo leer el archivo."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function isUrl(value) {
+    return /^https?:\/\//i.test(String(value || ""));
   }
 
   function approveFinding(e) {

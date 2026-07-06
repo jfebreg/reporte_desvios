@@ -2,11 +2,12 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
-const SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
+const DEFAULT_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
 
-let cachedToken = null;
+const cachedTokens = new Map();
 
-async function getAccessToken() {
+async function getAccessToken(scope = DEFAULT_SCOPE) {
+  const cachedToken = cachedTokens.get(scope);
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) return cachedToken.accessToken;
 
   const account = readServiceAccount();
@@ -14,7 +15,7 @@ async function getAccessToken() {
   const header = { alg: "RS256", typ: "JWT" };
   const claim = {
     iss: account.client_email,
-    scope: SCOPE,
+    scope,
     aud: TOKEN_URL,
     exp: now + 3600,
     iat: now
@@ -38,11 +39,11 @@ async function getAccessToken() {
   }
 
   const token = await response.json();
-  cachedToken = {
+  cachedTokens.set(scope, {
     accessToken: token.access_token,
     expiresAt: Date.now() + Number(token.expires_in || 3600) * 1000
-  };
-  return cachedToken.accessToken;
+  });
+  return token.access_token;
 }
 
 function readServiceAccount() {
