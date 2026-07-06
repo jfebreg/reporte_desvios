@@ -5,14 +5,15 @@
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
   const PUBLIC_REPORT_MODE = new URLSearchParams(window.location.search).has("reportar");
+  const DATA_MIGRATION_VERSION = "real-users-gsheet-cleanup-2026-07-06";
   let remoteStateLoaded = false;
   let remoteStateLoading = null;
+  let dataChangedByMigration = false;
 
   const people = [
-    { id: "u-admin", name: "Carolina Rivas", role: "admin", email: "carolina.rivas@empresa.cl", area: "Prevencion", pin: "1234" },
-    { id: "u-juan", name: "Juan Perez", role: "usuario", email: "juan.perez@empresa.cl", area: "Terreno", pin: "1234" },
-    { id: "u-maria", name: "Maria Soto", role: "usuario", email: "maria.soto@empresa.cl", area: "Calidad", pin: "1234" },
-    { id: "u-diego", name: "Diego Morales", role: "usuario", email: "diego.morales@empresa.cl", area: "Subcontratos", pin: "1234" }
+    { id: "u-karina-espinoza-ayala", name: "Karina Espinoza Ayala", role: "admin", email: "karina.espinoza@constructoraterratunel.com", area: "prevencion", pin: "1234" },
+    { id: "u-carlos-romero-gutierrez", name: "Carlos Romero Gutierrez", role: "usuario", email: "carlos.romero@constructoraterratunel.com", area: "prevencion", pin: "1234" },
+    { id: "u-julio-febre-guerra", name: "Julio Febre Guerra", role: "admin", email: "jfebre@iccingenieria.cl", area: "prevencion", pin: "1234" }
   ];
 
   const defaultActionCriteria = [
@@ -173,6 +174,7 @@
   }
 
   function migrateData(data) {
+    dataChangedByMigration = false;
     data.people = data.people || people;
     data.people.forEach((person) => {
       if (person.role === "manager") person.role = "usuario";
@@ -198,7 +200,52 @@
       if (finding.nonProcessableReason === undefined) finding.nonProcessableReason = "";
       if (!data.settings.sites.includes(finding.site)) finding.site = data.settings.defaultSite;
     });
+    applyRealUsersMigration(data);
     return data;
+  }
+
+  function applyRealUsersMigration(data) {
+    if (data.settings.dataMigrationVersion === DATA_MIGRATION_VERSION) return;
+
+    const demoPersonIds = new Set(["u-admin", "u-juan", "u-maria", "u-diego"]);
+    const realPeople = people.map((person) => ({ ...person }));
+    realPeople.forEach((realPerson) => {
+      const existing = data.people.find((person) =>
+        normalizeHeader(person.email) === normalizeHeader(realPerson.email)
+        || normalizeHeader(person.name) === normalizeHeader(realPerson.name)
+      );
+      if (existing) {
+        Object.assign(existing, {
+          name: realPerson.name,
+          email: realPerson.email,
+          area: realPerson.area,
+          role: realPerson.role,
+          pin: existing.pin || realPerson.pin
+        });
+      } else {
+        data.people.push(realPerson);
+      }
+    });
+
+    const realPersonIds = new Set(realPeople.map((person) => person.id));
+    data.people = data.people.filter((person) => !demoPersonIds.has(person.id) || realPersonIds.has(person.id));
+
+    const beforeFindings = data.findings.length;
+    data.findings = data.findings.filter((finding) => {
+      const rowId = String(finding.sheetRowId || "");
+      return rowId && !rowId.startsWith("WEB-") && !rowId.startsWith("MANUAL-");
+    });
+    data.findings.forEach((finding) => {
+      if (demoPersonIds.has(finding.ownerId)) finding.ownerId = "";
+    });
+
+    const removedFindings = beforeFindings - data.findings.length;
+    data.imports.unshift({
+      at: todayDate(),
+      detail: `Migracion usuarios reales aplicada. Hallazgos no GSheet eliminados: ${removedFindings}.`
+    });
+    data.settings.dataMigrationVersion = DATA_MIGRATION_VERSION;
+    dataChangedByMigration = true;
   }
 
   function saveData() {
@@ -218,6 +265,7 @@
         state.data = migrateData(await response.json());
         remoteStateLoaded = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+        if (dataChangedByMigration) await saveRemoteState();
         if (shouldRender) render();
         return true;
       } catch (error) {
@@ -901,7 +949,7 @@
           <div class="notice">Formato recomendado: nombre,correo,area,rol,pin. Si el correo o nombre ya existe, se actualiza.</div>
           <div class="field" style="margin-top:12px">
             <label>Listado CSV</label>
-            <textarea data-people-csv placeholder="nombre,correo,area,rol,pin&#10;Mauricio Munoz,mauricio@empresa.cl,Produccion,usuario,1234&#10;Karina Espinoza,karina@empresa.cl,Prevencion,usuario,1234"></textarea>
+            <textarea data-people-csv placeholder="nombre,correo,area,rol,pin&#10;Karina Espinoza Ayala,karina.espinoza@constructoraterratunel.com,prevencion,admin,1234&#10;Carlos Romero Gutierrez,carlos.romero@constructoraterratunel.com,prevencion,usuario,1234"></textarea>
           </div>
           <div class="field" style="margin-top:12px">
             <label>O cargar archivo CSV</label>
@@ -1117,7 +1165,7 @@
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
     document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
-      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol,pin\nMauricio Munoz,mauricio.munoz@empresa.cl,Produccion,usuario,1234\nRuben Maure,ruben.maure@empresa.cl,Terreno,usuario,1234\nKarina Espinoza,karina.espinoza@empresa.cl,Prevencion,usuario,1234\nJoaquin Atena,joaquin.atena@empresa.cl,Electricidad,usuario,1234";
+      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol,pin\nKarina Espinoza Ayala,karina.espinoza@constructoraterratunel.com,prevencion,admin,1234\nCarlos Romero Gutierrez,carlos.romero@constructoraterratunel.com,prevencion,usuario,1234\nJulio Febre Guerra,jfebre@iccingenieria.cl,prevencion,admin,1234";
     });
     document.querySelectorAll("[data-action='delete-person']").forEach((button) => button.addEventListener("click", deletePerson));
     document.querySelector("[data-action='reset-data']")?.addEventListener("click", resetData);
