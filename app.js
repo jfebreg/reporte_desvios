@@ -150,6 +150,7 @@
     selectedId: "",
     formError: "",
     evidenceMessage: "",
+    reportMessage: "",
     data: loadData()
   };
 
@@ -264,6 +265,7 @@
     state.selectedId = "";
     state.formError = "";
     state.evidenceMessage = "";
+    state.reportMessage = "";
     render();
   }
 
@@ -661,16 +663,52 @@
   function renderReport() {
     const formUrl = state.data.settings.formUrl || defaultSettings.formUrl;
     return `
-      ${renderTop("Reportar", "Acceso directo al formulario oficial de reporte en terreno.", `<a class="btn" href="${esc(formUrl)}" target="_blank" rel="noreferrer">Abrir Google Form</a>`)}
+      ${renderTop("Reportar", "Ingreso interno de hallazgos directo a la plataforma.", `<button class="btn" type="submit" form="internal-report-form">Enviar reporte</button>`)}
       <section class="grid two-col">
         <div class="panel">
-          <div class="panel-header"><h3>Formulario de reporte</h3></div>
-          <p class="plain-text">Usa este acceso para levantar nuevos hallazgos desde terreno. Los registros ingresan por Google Form, pasan a Sheets y luego se importan a esta web para asignacion y seguimiento.</p>
+          <div class="panel-header"><h3>Nuevo reporte en terreno</h3></div>
+          ${state.reportMessage ? `<div class="notice">${esc(state.reportMessage)}</div>` : ""}
+          <form id="internal-report-form" data-action="submit-report">
+            <div class="field">
+              <label>Obra</label>
+              <select data-report-field="site">${options(siteCatalog(), state.data.settings.defaultSite || defaultSettings.defaultSite)}</select>
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label>Ubicacion</label>
+              <input data-report-field="location" placeholder="Ej: excavacion estanque lyon" required>
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label>Que estas reportando</label>
+              <select data-report-field="category">
+                ${options(["Condicion insegura", "Acto inseguro", "Incidente sin lesion", "Observacion preventiva", "Otro"], "Condicion insegura")}
+              </select>
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label>Describe lo observado con tus palabras</label>
+              <textarea data-report-field="description" placeholder="Describe el riesgo, condicion o acto observado" required></textarea>
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label>Adjuntar imagen, video o audio</label>
+              <input type="file" accept="image/*,video/*,audio/*" data-report-file>
+            </div>
+            <div class="form-grid" style="margin-top:12px">
+              <div class="field">
+                <label>Nombre reportante</label>
+                <input data-report-field="reporterName" value="${esc(currentUser().name || "")}" placeholder="Nombre">
+              </div>
+              <div class="field">
+                <label>Correo reportante</label>
+                <input type="email" data-report-field="reporterEmail" value="${esc(currentUser().email || "")}" placeholder="correo@empresa.cl">
+              </div>
+            </div>
+            <div class="actions" style="justify-content:flex-start;margin-top:12px">
+              <button class="btn" type="submit">Enviar reporte</button>
+            </div>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Configuracion</h3></div>
           <div class="field">
-            <label>Link del Google Form</label>
-            <input type="url" value="${esc(formUrl)}" data-setting="formUrl" placeholder="https://forms.gle/...">
-          </div>
-          <div class="field" style="margin-top:12px">
             <label>Obra por defecto</label>
             <select data-setting="defaultSite">${options(siteCatalog(), state.data.settings.defaultSite || defaultSettings.defaultSite)}</select>
           </div>
@@ -678,18 +716,22 @@
             <label>Listado de obras</label>
             <textarea data-setting="sitesText">${esc(siteCatalog().join("\n"))}</textarea>
           </div>
+          <div class="field" style="margin-top:12px">
+            <label>Link antiguo Google Form</label>
+            <input type="url" value="${esc(formUrl)}" data-setting="formUrl" placeholder="https://forms.gle/...">
+          </div>
           <div class="actions" style="justify-content:flex-start;margin-top:12px">
-            <button class="btn secondary" data-action="save-settings">Guardar link</button>
-            <a class="btn" href="${esc(formUrl)}" target="_blank" rel="noreferrer">Abrir Form</a>
+            <button class="btn secondary" data-action="save-settings">Guardar configuracion</button>
+            <a class="btn secondary" href="${esc(formUrl)}" target="_blank" rel="noreferrer">Abrir Form antiguo</a>
           </div>
         </div>
         <div class="panel">
-          <div class="panel-header"><h3>Flujo esperado</h3></div>
+          <div class="panel-header"><h3>Flujo actual</h3></div>
           <ul class="timeline">
-            <li><strong>1. Reporte</strong><br>La persona reporta en Google Form.</li>
-            <li><strong>2. Captura</strong><br>Google Sheets recibe la respuesta.</li>
-            <li><strong>3. Gestion</strong><br>La web importa, asigna responsable y controla vencimientos.</li>
-            <li><strong>4. Cierre</strong><br>El responsable carga evidencia y administrador valida.</li>
+            <li><strong>1. Reporte interno</strong><br>El hallazgo se crea directo en la plataforma.</li>
+            <li><strong>2. Evidencia inicial</strong><br>El archivo queda guardado por el backend si viene adjunto.</li>
+            <li><strong>3. Gestion</strong><br>Administrador clasifica, prioriza y asigna responsable.</li>
+            <li><strong>4. Cierre</strong><br>Responsable carga evidencia final y administrador valida.</li>
           </ul>
         </div>
       </section>
@@ -993,6 +1035,7 @@
       state.evidenceMessage = "";
       render();
     });
+    document.querySelector("[data-action='submit-report']")?.addEventListener("submit", submitInternalReport);
     document.querySelector("[data-action='new-finding']")?.addEventListener("click", createFinding);
     document.querySelector("[data-action='select-unassigned']")?.addEventListener("click", selectUnassignedFindings);
     document.querySelector("[data-action='bulk-assign']")?.addEventListener("click", bulkAssignFindings);
@@ -1048,10 +1091,87 @@
     if (changed) saveData();
   }
 
-  function createFinding() {
-    const next = String(state.data.findings.length + 1).padStart(3, "0");
+  async function submitInternalReport(e) {
+    e.preventDefault();
+    const form = e.target;
+    const submitButton = form.querySelector("button[type='submit']");
+    const file = form.querySelector("[data-report-file]")?.files?.[0];
+    const site = form.querySelector("[data-report-field='site']")?.value || state.data.settings.defaultSite || defaultSettings.defaultSite;
+    const location = form.querySelector("[data-report-field='location']")?.value.trim();
+    const category = form.querySelector("[data-report-field='category']")?.value || "Condicion insegura";
+    const description = form.querySelector("[data-report-field='description']")?.value.trim();
+    const reporterName = form.querySelector("[data-report-field='reporterName']")?.value.trim() || currentUser().name;
+    const reporterEmail = form.querySelector("[data-report-field='reporterEmail']")?.value.trim() || currentUser().email;
+
+    if (!location || !description) {
+      state.reportMessage = "Completa ubicacion y descripcion antes de enviar.";
+      render();
+      return;
+    }
+    if (file && file.size > 8 * 1024 * 1024) {
+      state.reportMessage = "El adjunto supera 8 MB. Usa un archivo mas liviano.";
+      render();
+      return;
+    }
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Enviando...";
+    }
+    state.reportMessage = file ? "Guardando reporte y adjunto..." : "Guardando reporte...";
+
+    const findingId = nextFindingId();
+    let initialEvidence = null;
+    try {
+      if (file) {
+        const base64 = await fileToBase64(file);
+        initialEvidence = await uploadEvidenceToDatabase({
+          findingId,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          base64
+        });
+      }
+    } catch (error) {
+      state.reportMessage = `No se pudo guardar el adjunto: ${error.message}`;
+      render();
+      return;
+    }
+
+    const now = today.toISOString().slice(0, 10);
     const finding = {
-      id: `H-2026-${next}`,
+      id: findingId,
+      sheetRowId: `WEB-${Date.now()}`,
+      createdAt: now,
+      detectedAt: now,
+      site,
+      location,
+      description: `[${category}] ${description}`,
+      initialPhoto: initialEvidence?.url || "",
+      criticality: "Media",
+      priority: "Media",
+      ownerId: "",
+      dueDate: "",
+      status: "Nuevo",
+      comments: `Reportado por ${reporterName}${reporterEmail ? ` (${reporterEmail})` : ""}. Origen: formulario interno.`,
+      evidence: initialEvidence
+        ? [{ ...initialEvidence, note: "Adjunto inicial del reporte.", uploadedBy: reporterName, uploadedAt: now }]
+        : [],
+      closedAt: "",
+      history: [event(reporterName, "Reporte creado desde formulario interno")]
+    };
+
+    state.data.findings.unshift(finding);
+    state.selectedId = finding.id;
+    state.view = "findings";
+    state.reportMessage = "";
+    saveData();
+    render();
+  }
+
+  function createFinding() {
+    const finding = {
+      id: nextFindingId(),
       sheetRowId: `MANUAL-${Date.now()}`,
       createdAt: today.toISOString().slice(0, 10),
       detectedAt: today.toISOString().slice(0, 10),
@@ -1073,6 +1193,15 @@
     state.selectedId = finding.id;
     saveData();
     render();
+  }
+
+  function nextFindingId() {
+    const year = today.getFullYear();
+    const max = state.data.findings.reduce((highest, finding) => {
+      const match = String(finding.id || "").match(new RegExp(`^H-${year}-(\\d+)$`));
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 0);
+    return `H-${year}-${String(max + 1).padStart(3, "0")}`;
   }
 
   function selectUnassignedFindings() {
@@ -1218,6 +1347,7 @@
   }
 
   async function uploadEvidenceToDatabase(payload) {
+    if (!API_BASE_URL) throw new Error("backend no configurado");
     const response = await apiFetch("/api/evidence/file", {
       method: "POST",
       body: JSON.stringify(payload)
@@ -1446,13 +1576,13 @@
     const records = hasHeader ? rows.slice(1).map((row, index) => mapGoogleFormRow(header, row, index)) : rows.map(mapSimpleRow);
     records.forEach((record) => {
       if (!record.sheetRowId || existing.has(record.sheetRowId)) return;
-      const next = String(state.data.findings.length + 1).padStart(3, "0");
+      const findingId = nextFindingId();
       const ownerId = resolveOwner(record.responsible);
       const status = record.closedAt ? "Cerrado" : ownerId ? "Asignado" : "Nuevo";
       const assignedEmailAt = ownerId ? today.toISOString().slice(0, 10) : "";
       const dueDate = assignedEmailAt ? dueDateFromCriteria(assignedEmailAt, record.actionCriteria) : "";
       state.data.findings.unshift({
-        id: `H-2026-${next}`,
+        id: findingId,
         sheetRowId: record.sheetRowId,
         createdAt: today.toISOString().slice(0, 10),
         detectedAt: record.detectedAt || today.toISOString().slice(0, 10),
@@ -1479,7 +1609,7 @@
           ...(record.closedAt ? [event("Sistema", "Cierre importado desde planilla")] : [])
         ]
       });
-      if (ownerId && !record.closedAt) queueEmail(ownerId, `Nuevo hallazgo asignado H-2026-${next}`, `${record.location || "Sin ubicacion"}. Fecha limite: ${dueDate}`);
+      if (ownerId && !record.closedAt) queueEmail(ownerId, `Nuevo hallazgo asignado ${findingId}`, `${record.location || "Sin ubicacion"}. Fecha limite: ${dueDate}`);
       existing.add(record.sheetRowId);
       imported += 1;
     });
