@@ -32,7 +32,7 @@ services:
       - key: SENDGRID_API_KEY
         sync: false
       - key: MAIL_FROM
-        value: prevencion@empresa.cl
+        value: jfebre@iccingenieria.cl
 
 databases:
   - name: reporte-desvios-db

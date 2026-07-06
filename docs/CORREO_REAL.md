@@ -8,7 +8,7 @@ En `reporte-desvios-api > Environment` configura:
 
 ```txt
 SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxxxxxxx
-MAIL_FROM=correo-verificado@tu-dominio.cl
+MAIL_FROM=jfebre@iccingenieria.cl
 ```
 
 Luego ejecuta `Manual Deploy > Deploy latest commit`.
@@ -21,9 +21,10 @@ Luego ejecuta `Manual Deploy > Deploy latest commit`.
 
 ## Prueba
 
-1. En la web asigna o reasigna un hallazgo.
-2. Abre `Alertas correo`.
+1. Abre `Alertas correo`.
+2. Presiona `Enviar prueba usuarios`.
 3. Revisa la columna `Estado`.
+4. Si la prueba sale bien, asigna o reasigna un hallazgo para validar el correo operativo.
 
 Estados posibles:
 

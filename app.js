@@ -6,6 +6,7 @@
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
   const PUBLIC_REPORT_MODE = new URLSearchParams(window.location.search).has("reportar");
   const DATA_MIGRATION_VERSION = "real-users-gsheet-cleanup-2026-07-06";
+  const REAL_EMAIL_TEST_SUBJECT = "Prueba correo Hallazgos Seguridad";
   let remoteStateLoaded = false;
   let remoteStateLoading = null;
   let dataChangedByMigration = false;
@@ -1008,7 +1009,7 @@
 
   function renderEmails() {
     return `
-      ${renderTop("Alertas de correo", "Bandeja de salida para asignaciones, vencimientos, observaciones y cierres.", `<button class="btn" data-action="generate-reminders">Generar recordatorios</button>`)}
+      ${renderTop("Alertas de correo", "Bandeja de salida para asignaciones, vencimientos, observaciones y cierres.", `<button class="btn secondary" data-action="send-test-emails">Enviar prueba usuarios</button><button class="btn" data-action="generate-reminders">Generar recordatorios</button>`)}
       <section class="panel">
         <div class="table-wrap">
           <table>
@@ -1171,6 +1172,7 @@
     document.querySelector("[data-action='reset-data']")?.addEventListener("click", resetData);
     document.querySelector("[data-import-file]")?.addEventListener("change", loadImportFile);
     document.querySelector("[data-people-file]")?.addEventListener("change", loadPeopleFile);
+    document.querySelector("[data-action='send-test-emails']")?.addEventListener("click", sendTestEmails);
     document.querySelector("[data-action='generate-reminders']")?.addEventListener("click", generateReminders);
     document.querySelector("[data-action='save-settings']")?.addEventListener("click", saveSettings);
   }
@@ -1558,6 +1560,29 @@
     };
     state.data.emails.unshift(email);
     dispatchEmail(email);
+  }
+
+  function sendTestEmails() {
+    const recipients = state.data.people.filter((person) => person.email && ["admin", "usuario"].includes(person.role));
+    if (!recipients.length) {
+      state.formError = "No hay usuarios con correo para probar.";
+      render();
+      return;
+    }
+    recipients.forEach((person) => {
+      queueEmail(
+        person.id,
+        REAL_EMAIL_TEST_SUBJECT,
+        `Hola ${person.name}. Este es un correo de prueba de la plataforma Hallazgos de Seguridad para Aduccion Lyon Valparaiso / Terratunel SpA.`
+      );
+    });
+    state.data.imports.unshift({
+      at: todayDate(),
+      detail: `Prueba de correo enviada a ${recipients.length} usuario(s). Revisa estado en Alertas correo.`
+    });
+    state.formError = "";
+    saveData();
+    render();
   }
 
   async function dispatchEmail(email) {
