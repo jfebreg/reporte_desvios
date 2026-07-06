@@ -1,11 +1,12 @@
 (function () {
   const STORAGE_KEY = "obraSafetyFindings.v1";
   const SESSION_KEY = "obraSafetyFindings.sessionUser";
-  const today = new Date("2026-07-03T12:00:00");
+  const today = new Date();
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
   const PUBLIC_REPORT_MODE = new URLSearchParams(window.location.search).has("reportar");
   let remoteStateLoaded = false;
+  let remoteStateLoading = null;
 
   const people = [
     { id: "u-admin", name: "Carolina Rivas", role: "admin", email: "carolina.rivas@empresa.cl", area: "Prevencion", pin: "1234" },
@@ -155,7 +156,14 @@
   };
 
   function event(actor, detail) {
-    return { at: today.toISOString().slice(0, 10), actor, detail };
+    return { at: todayDate(), actor, detail };
+  }
+
+  function todayDate() {
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   function loadData() {
@@ -195,32 +203,45 @@
 
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
-    saveRemoteState();
+    return saveRemoteState();
   }
 
-  async function loadRemoteState() {
-    if (!API_BASE_URL || remoteStateLoaded) return;
-    try {
-      const response = await apiFetch("/api/state");
-      if (!response.ok) throw new Error(`API ${response.status}`);
-      state.data = migrateData(await response.json());
-      remoteStateLoaded = true;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
-      render();
-    } catch (error) {
-      console.warn("No se pudo cargar backend productivo; se usa respaldo local.", error);
-    }
+  async function loadRemoteState(options = {}) {
+    const shouldRender = options.render !== false;
+    if (remoteStateLoaded) return true;
+    if (!API_BASE_URL) return false;
+    if (remoteStateLoading) return remoteStateLoading;
+    remoteStateLoading = (async () => {
+      try {
+        const response = await apiFetch("/api/state");
+        if (!response.ok) throw new Error(`API ${response.status}`);
+        state.data = migrateData(await response.json());
+        remoteStateLoaded = true;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+        if (shouldRender) render();
+        return true;
+      } catch (error) {
+        console.warn("No se pudo cargar backend productivo; se usa respaldo local.", error);
+        return false;
+      } finally {
+        remoteStateLoading = null;
+      }
+    })();
+    return remoteStateLoading;
   }
 
   async function saveRemoteState() {
-    if (!API_BASE_URL || !remoteStateLoaded) return;
+    if (!API_BASE_URL || !remoteStateLoaded) return false;
     try {
-      await apiFetch("/api/state", {
+      const response = await apiFetch("/api/state", {
         method: "PUT",
         body: JSON.stringify(state.data)
       });
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      return true;
     } catch (error) {
       console.warn("No se pudo guardar en backend productivo; se mantiene respaldo local.", error);
+      return false;
     }
   }
 
@@ -350,7 +371,7 @@
 
   function calculateDaysUsed(finding) {
     if (!finding.assignedEmailAt) return "Pendiente envio correo";
-    const endDate = finding.closedAt || today.toISOString().slice(0, 10);
+    const endDate = finding.closedAt || todayDate();
     return `${daysBetween(finding.assignedEmailAt, endDate)} dias`;
   }
 
@@ -785,7 +806,7 @@
           <table>
             <thead>
               <tr>
-                ${user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
+                ${user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Fecha emision</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -793,6 +814,7 @@
                 <tr>
                   ${user.role === "admin" ? `<td><input type="checkbox" data-bulk-id="${esc(f.id)}" ${["Cerrado", "No procesable"].includes(f.status) ? "disabled" : ""}></td>` : ""}
                   <td><strong>${esc(f.id)}</strong></td>
+                  <td>${esc(f.createdAt || f.detectedAt || "")}</td>
                   <td>${esc(f.site)}</td>
                   <td>${esc(f.location)}</td>
                   <td><span class="badge ${badgeClass(f.criticality)}">${esc(f.criticality)}</span></td>
@@ -803,7 +825,7 @@
                   <td><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span>${f.status === "No procesable" && f.nonProcessableReason ? `<div class="muted-note">${esc(f.nonProcessableReason)}</div>` : ""}</td>
                   <td><button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button></td>
                 </tr>
-              `).join("") || `<tr><td colspan="${user.role === "admin" ? "11" : "10"}" class="empty">No hay hallazgos para estos filtros</td></tr>`}
+              `).join("") || `<tr><td colspan="${user.role === "admin" ? "12" : "11"}" class="empty">No hay hallazgos para estos filtros</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -975,6 +997,8 @@
           ${state.formError ? `<div class="notice">${esc(state.formError)}</div>` : ""}
           <div class="grid two-col">
             <form class="panel form-grid" data-action="save-finding">
+              <div class="field"><label>Fecha emision</label><input value="${esc(f.createdAt || f.detectedAt || "")}" disabled></div>
+              <div class="field"><label>Fecha deteccion</label><input value="${esc(f.detectedAt || f.createdAt || "")}" disabled></div>
               <div class="field"><label>Obra</label><select name="site" ${admin ? "" : "disabled"}>${options(siteCatalog(), f.site)}</select></div>
               <div class="field"><label>Ubicacion</label><input name="location" value="${esc(f.location)}" ${admin ? "" : "disabled"}></div>
               <div class="field span-2"><label>Descripcion</label><textarea name="description" ${admin ? "" : "disabled"}>${esc(f.description)}</textarea></div>
@@ -1148,6 +1172,23 @@
       render();
       return;
     }
+    if (PUBLIC_REPORT_MODE) {
+      if (!API_BASE_URL) {
+        state.reportMessage = "No se puede enviar: backend no configurado.";
+        render();
+        return;
+      }
+      if (!remoteStateLoaded) {
+        state.reportMessage = "Conectando con el servidor...";
+        render();
+        const loaded = await loadRemoteState({ render: false });
+        if (!loaded) {
+          state.reportMessage = "No se pudo conectar con el servidor. Intenta nuevamente.";
+          render();
+          return;
+        }
+      }
+    }
 
     if (submitButton) {
       submitButton.disabled = true;
@@ -1173,7 +1214,7 @@
       return;
     }
 
-    const now = today.toISOString().slice(0, 10);
+    const now = todayDate();
     const finding = {
       id: findingId,
       sheetRowId: `WEB-${Date.now()}`,
@@ -1205,7 +1246,12 @@
       state.view = "findings";
       state.reportMessage = "";
     }
-    saveData();
+    const saved = await saveData();
+    if (PUBLIC_REPORT_MODE && !saved) {
+      state.reportMessage = "No se pudo guardar en el servidor. Intenta nuevamente.";
+      render();
+      return;
+    }
     render();
   }
 
@@ -1220,8 +1266,8 @@
     const finding = {
       id: nextFindingId(),
       sheetRowId: `MANUAL-${Date.now()}`,
-      createdAt: today.toISOString().slice(0, 10),
-      detectedAt: today.toISOString().slice(0, 10),
+      createdAt: todayDate(),
+      detectedAt: todayDate(),
       site: state.data.settings.defaultSite || defaultSettings.defaultSite,
       location: "Ubicacion pendiente",
       description: "Describe el hallazgo de seguridad.",
@@ -1229,7 +1275,7 @@
       criticality: "Media",
       priority: "Media",
       ownerId: "",
-      dueDate: today.toISOString().slice(0, 10),
+      dueDate: todayDate(),
       status: "Nuevo",
       comments: "",
       evidence: [],
@@ -1271,7 +1317,7 @@
       finding.ownerId = ownerId;
       finding.actionCriteria = actionCriteria;
       finding.priority = mapPriority(actionCriteria);
-      finding.assignedEmailAt = today.toISOString().slice(0, 10);
+      finding.assignedEmailAt = todayDate();
       finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, actionCriteria);
       finding.status = finding.status === "Nuevo" || !finding.status ? "Asignado" : finding.status;
       finding.history.push(event("Sistema", `Asignacion masiva a ${ownerName(ownerId)}. Plazo recalculado desde ${finding.assignedEmailAt}`));
@@ -1279,7 +1325,7 @@
       updated += 1;
     });
 
-    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${updated} hallazgos asignados masivamente a ${ownerName(ownerId)}.` });
+    state.data.imports.unshift({ at: todayDate(), detail: `${updated} hallazgos asignados masivamente a ${ownerName(ownerId)}.` });
     saveData();
     render();
   }
@@ -1304,10 +1350,10 @@
     if (form.has("actionCriteria")) {
       const criterion = getCriterion(f.actionCriteria);
       f.priority = criterion.priority;
-      f.dueDate = dueDateFromCriteria(f.assignedEmailAt || today.toISOString().slice(0, 10), f.actionCriteria);
+      f.dueDate = dueDateFromCriteria(f.assignedEmailAt || todayDate(), f.actionCriteria);
     }
     if (f.ownerId && f.status === "Nuevo") f.status = "Asignado";
-    if (f.status === "Cerrado" && !f.closedAt) f.closedAt = today.toISOString().slice(0, 10);
+    if (f.status === "Cerrado" && !f.closedAt) f.closedAt = todayDate();
     if (f.status === "No procesable") {
       f.closedAt = "";
       f.dueDate = "";
@@ -1365,7 +1411,7 @@
     const evidenceMessage = evidence.statusMessage || "Evidencia cargada correctamente.";
     const evidenceRecord = { ...evidence };
     delete evidenceRecord.statusMessage;
-    f.evidence.push({ ...evidenceRecord, note, uploadedBy: currentUser().name, uploadedAt: today.toISOString().slice(0, 10) });
+    f.evidence.push({ ...evidenceRecord, note, uploadedBy: currentUser().name, uploadedAt: todayDate() });
     f.status = currentUser().role === "admin" ? f.status : "Completado por responsable";
     f.history.push(event(currentUser().name, `Subio evidencia: ${evidence.name}`));
     queueEmail("u-admin", `Evidencia pendiente ${f.id}`, `${ownerName(f.ownerId)} cargo evidencia para revision.`);
@@ -1401,7 +1447,7 @@
   function approveFinding(e) {
     const f = state.data.findings.find((item) => item.id === e.target.dataset.id);
     f.status = "Cerrado";
-    f.closedAt = today.toISOString().slice(0, 10);
+    f.closedAt = todayDate();
     f.history.push(event(currentUser().name, "Cierre aprobado"));
     queueEmail(f.ownerId, `Cierre aprobado ${f.id}`, "La evidencia fue validada y el hallazgo quedo cerrado.");
     saveData();
@@ -1453,7 +1499,7 @@
     if (!person) return;
     const email = {
       id: `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      at: today.toISOString().slice(0, 10),
+      at: todayDate(),
       to: person.email,
       subject,
       body,
@@ -1510,7 +1556,7 @@
   }
 
   function applyAssignmentEmail(finding, historyText) {
-    finding.assignedEmailAt = today.toISOString().slice(0, 10);
+    finding.assignedEmailAt = todayDate();
     finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, finding.actionCriteria);
     if (finding.status === "Nuevo") finding.status = "Asignado";
     queueEmail(finding.ownerId, `Nuevo hallazgo asignado ${finding.id}`, `${finding.site} · ${finding.location}. Fecha limite: ${finding.dueDate}`);
@@ -1543,7 +1589,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `hallazgos-seguridad-${today.toISOString().slice(0, 10)}.csv`;
+    link.download = `hallazgos-seguridad-${todayDate()}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1589,7 +1635,7 @@
         created += 1;
       }
     });
-    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${created} recordatorios generados.` });
+    state.data.imports.unshift({ at: todayDate(), detail: `${created} recordatorios generados.` });
     saveData();
     render();
   }
@@ -1608,13 +1654,13 @@
       const findingId = nextFindingId();
       const ownerId = resolveOwner(record.responsible);
       const status = record.closedAt ? "Cerrado" : ownerId ? "Asignado" : "Nuevo";
-      const assignedEmailAt = ownerId ? today.toISOString().slice(0, 10) : "";
+      const assignedEmailAt = ownerId ? todayDate() : "";
       const dueDate = assignedEmailAt ? dueDateFromCriteria(assignedEmailAt, record.actionCriteria) : "";
       state.data.findings.unshift({
         id: findingId,
         sheetRowId: record.sheetRowId,
-        createdAt: today.toISOString().slice(0, 10),
-        detectedAt: record.detectedAt || today.toISOString().slice(0, 10),
+        createdAt: todayDate(),
+        detectedAt: record.detectedAt || todayDate(),
         site: normalizeSite(record.site),
         location: record.location || "Sin ubicacion",
         description: record.description || "Sin descripcion",
@@ -1630,7 +1676,7 @@
         dueDate,
         status,
         comments: record.comments || "Importado desde planilla historica.",
-        evidence: record.evidenceName ? [{ name: record.evidenceName, uploadedBy: ownerName(ownerId), uploadedAt: record.closedAt || today.toISOString().slice(0, 10), note: "Evidencia importada desde Google Sheet." }] : [],
+        evidence: record.evidenceName ? [{ name: record.evidenceName, uploadedBy: ownerName(ownerId), uploadedAt: record.closedAt || todayDate(), note: "Evidencia importada desde Google Sheet." }] : [],
         closedAt: record.closedAt || "",
         history: [
           event("Sistema", "Importado desde CSV de Google Sheets"),
@@ -1642,7 +1688,7 @@
       existing.add(record.sheetRowId);
       imported += 1;
     });
-    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${imported} hallazgos nuevos importados; duplicados omitidos.` });
+    state.data.imports.unshift({ at: todayDate(), detail: `${imported} hallazgos nuevos importados; duplicados omitidos.` });
     saveData();
     render();
   }
@@ -1748,7 +1794,7 @@
   }
 
   function addImportLog(detail) {
-    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail });
+    state.data.imports.unshift({ at: todayDate(), detail });
     saveData();
     render();
   }
@@ -1801,7 +1847,7 @@
         created += 1;
       }
     });
-    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `${created} personas creadas; ${updated} personas actualizadas.` });
+    state.data.imports.unshift({ at: todayDate(), detail: `${created} personas creadas; ${updated} personas actualizadas.` });
     saveData();
     render();
   }
@@ -1879,7 +1925,7 @@
     });
     state.data.people = state.data.people.filter((item) => item.id !== id);
     if (state.filters.ownerId === id) state.filters.ownerId = "Todos";
-    state.data.imports.unshift({ at: today.toISOString().slice(0, 10), detail: `Persona eliminada: ${person.name}. Hallazgos liberados: ${assigned.length}.` });
+    state.data.imports.unshift({ at: todayDate(), detail: `Persona eliminada: ${person.name}. Hallazgos liberados: ${assigned.length}.` });
     saveData();
     render();
   }
