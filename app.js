@@ -706,9 +706,19 @@
               <label>Describe lo observado con tus palabras</label>
               <textarea data-report-field="description" placeholder="Describe el riesgo, condicion o acto observado" required></textarea>
             </div>
-            <div class="field" style="margin-top:12px">
-              <label>Tomar o adjuntar imagen/video</label>
-              <input type="file" accept="image/*,video/*" capture="environment" data-report-file>
+            <div class="form-grid" style="margin-top:12px">
+              <div class="field">
+                <label>Tomar foto</label>
+                <input type="file" accept="image/*" capture="environment" data-report-photo>
+              </div>
+              <div class="field">
+                <label>Grabar video</label>
+                <input type="file" accept="video/*" capture="environment" data-report-video>
+              </div>
+              <div class="field span-2">
+                <label>Adjuntar desde galeria</label>
+                <input type="file" accept="image/*,video/*" data-report-file>
+              </div>
             </div>
             <div class="form-grid" style="margin-top:12px">
               <div class="field">
@@ -1114,7 +1124,7 @@
     e.preventDefault();
     const form = e.target;
     const submitButton = form.querySelector("button[type='submit']");
-    const file = form.querySelector("[data-report-file]")?.files?.[0];
+    const file = selectedReportFile(form);
     const site = form.querySelector("[data-report-field='site']")?.value || state.data.settings.defaultSite || defaultSettings.defaultSite;
     const location = form.querySelector("[data-report-field='location']")?.value.trim();
     const category = form.querySelector("[data-report-field='category']")?.value || "Condicion insegura";
@@ -1192,6 +1202,13 @@
     }
     saveData();
     render();
+  }
+
+  function selectedReportFile(form) {
+    return form.querySelector("[data-report-photo]")?.files?.[0]
+      || form.querySelector("[data-report-video]")?.files?.[0]
+      || form.querySelector("[data-report-file]")?.files?.[0]
+      || null;
   }
 
   function createFinding() {
