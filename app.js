@@ -797,15 +797,21 @@
 
   function renderEmails() {
     return `
-      ${renderTop("Alertas de correo", "Bandeja de salida simulada para asignaciones, vencimientos, observaciones y cierres.", `<button class="btn" data-action="generate-reminders">Generar recordatorios</button>`)}
+      ${renderTop("Alertas de correo", "Bandeja de salida para asignaciones, vencimientos, observaciones y cierres.", `<button class="btn" data-action="generate-reminders">Generar recordatorios</button>`)}
       <section class="panel">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Fecha</th><th>Para</th><th>Asunto</th><th>Detalle</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Para</th><th>Asunto</th><th>Estado</th><th>Detalle</th></tr></thead>
             <tbody>
               ${state.data.emails.map((mail) => `
-                <tr><td>${esc(mail.at)}</td><td>${esc(mail.to)}</td><td><strong>${esc(mail.subject)}</strong></td><td>${esc(mail.body)}</td></tr>
-              `).join("") || `<tr><td colspan="4" class="empty">Aun no hay correos simulados.</td></tr>`}
+                <tr>
+                  <td>${esc(mail.at)}</td>
+                  <td>${esc(mail.to)}</td>
+                  <td><strong>${esc(mail.subject)}</strong></td>
+                  <td><span class="badge ${badgeClass(mail.status || "simulado")}">${esc(emailStatusLabel(mail))}</span>${mail.errorMessage ? `<div class="muted-note">${esc(mail.errorMessage)}</div>` : ""}</td>
+                  <td>${esc(mail.body)}</td>
+                </tr>
+              `).join("") || `<tr><td colspan="5" class="empty">Aun no hay correos generados.</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -1132,7 +1138,54 @@
   function queueEmail(userId, subject, body) {
     const person = state.data.people.find((p) => p.id === userId);
     if (!person) return;
-    state.data.emails.unshift({ at: today.toISOString().slice(0, 10), to: person.email, subject, body });
+    const email = {
+      id: `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      at: today.toISOString().slice(0, 10),
+      to: person.email,
+      subject,
+      body,
+      status: API_BASE_URL ? "pending" : "simulated",
+      provider: API_BASE_URL ? "backend" : "local",
+      providerMessageId: "",
+      errorMessage: ""
+    };
+    state.data.emails.unshift(email);
+    dispatchEmail(email);
+  }
+
+  async function dispatchEmail(email) {
+    if (!API_BASE_URL) return;
+    try {
+      const response = await apiFetch("/api/emails/send", {
+        method: "POST",
+        body: JSON.stringify({ to: email.to, subject: email.subject, body: email.body })
+      });
+      if (!response.ok) throw new Error(await responseErrorMessage(response, "API correo"));
+      const result = await response.json();
+      updateEmailStatus(email.id, result);
+    } catch (error) {
+      updateEmailStatus(email.id, { status: "failed", provider: "backend", errorMessage: error.message });
+    }
+  }
+
+  function updateEmailStatus(id, result) {
+    const email = state.data.emails.find((item) => item.id === id);
+    if (!email) return;
+    email.status = result.status || "failed";
+    email.provider = result.provider || email.provider || "";
+    email.providerMessageId = result.providerMessageId || "";
+    email.errorMessage = result.errorMessage || "";
+    saveData();
+    if (state.view === "emails") render();
+  }
+
+  function emailStatusLabel(email) {
+    const status = email.status || "simulated";
+    if (status === "sent") return "Enviado";
+    if (status === "simulated") return "Simulado";
+    if (status === "pending") return "Pendiente";
+    if (status === "failed") return "Fallido";
+    return status;
   }
 
   function sendAssignmentEmail(e) {

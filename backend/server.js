@@ -2,7 +2,7 @@ const http = require("node:http");
 const { URL } = require("node:url");
 const { readState, writeState, getStorageStatus } = require("./src/store");
 const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
-const { getMailerStatus } = require("./src/mailer");
+const { getMailerStatus, sendMail } = require("./src/mailer");
 const { runReminderJob } = require("./src/reminders");
 const { loadEnv } = require("./src/env");
 
@@ -85,6 +85,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/emails/send") {
+      const payload = await readJson(req);
+      const result = await sendOutboundEmail(payload);
+      sendJson(res, 200, result);
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/import/google-sheets") {
       const state = await readState();
       const nextState = await importFromGoogleSheets(state);
@@ -140,6 +147,32 @@ async function readJson(req) {
   for await (const chunk of req) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString("utf8");
   return raw ? JSON.parse(raw) : {};
+}
+
+async function sendOutboundEmail(payload) {
+  const to = String(payload.to || "").trim();
+  const subject = String(payload.subject || "").trim();
+  const body = String(payload.body || "").trim();
+  if (!to || !subject || !body) {
+    return { status: "failed", provider: "", errorMessage: "Faltan destinatario, asunto o detalle." };
+  }
+
+  try {
+    const result = await sendMail({ to, subject, body });
+    return {
+      status: result.status,
+      provider: result.provider,
+      providerMessageId: result.providerMessageId || "",
+      errorMessage: ""
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      provider: "sendgrid",
+      providerMessageId: "",
+      errorMessage: error.message
+    };
+  }
 }
 
 function startAutoImport() {
