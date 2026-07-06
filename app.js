@@ -149,6 +149,7 @@
     chartVisibility: { status: true, criticality: true, priority: true, compliance: true, trend: true, progress: true, pendingOwners: true, slowOwners: true, avgResolve: true, deadline: true, upcoming: true, nonProcessable: true },
     selectedId: "",
     formError: "",
+    evidenceMessage: "",
     data: loadData()
   };
 
@@ -262,6 +263,7 @@
     state.view = view;
     state.selectedId = "";
     state.formError = "";
+    state.evidenceMessage = "";
     render();
   }
 
@@ -924,6 +926,7 @@
               ${renderLinksPanel(f)}
               <section class="panel">
                 <div class="panel-header"><h3>Evidencias</h3></div>
+                ${state.evidenceMessage ? `<div class="notice">${esc(state.evidenceMessage)}</div>` : ""}
                 <ul class="timeline">
                   ${f.evidence.map((e) => `<li><strong>${esc(e.uploadedAt)} · ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noreferrer">${esc(e.name)}</a>` : esc(e.name)}</strong><br>${esc(e.note)}<br>Subido por ${esc(e.uploadedBy)}</li>`).join("") || `<li>Sin evidencia cargada.</li>`}
                 </ul>
@@ -931,7 +934,7 @@
                   <div class="field" style="margin-top:12px"><label>Archivo de evidencia</label><input type="file" data-evidence-file></div>
                   <div class="field" style="margin-top:12px"><label>O enlace Drive/manual</label><input data-evidence-name placeholder="https://drive.google.com/..."></div>
                   <div class="field" style="margin-top:8px"><label>Nota de evidencia</label><textarea data-evidence-note placeholder="Describe la accion correctiva realizada"></textarea></div>
-                  <button class="btn secondary" style="margin-top:10px" data-action="add-evidence" data-id="${f.id}">Subir evidencia</button>
+                  <button class="btn secondary" type="button" style="margin-top:10px" data-action="add-evidence" data-id="${f.id}">Subir evidencia</button>
                 ` : ""}
               </section>
               <section class="panel">
@@ -981,11 +984,13 @@
     document.querySelectorAll("[data-action='open']").forEach((button) => button.addEventListener("click", () => {
       state.selectedId = button.dataset.id;
       state.formError = "";
+      state.evidenceMessage = "";
       render();
     }));
     document.querySelector("[data-action='close-modal']")?.addEventListener("click", () => {
       state.selectedId = "";
       state.formError = "";
+      state.evidenceMessage = "";
       render();
     });
     document.querySelector("[data-action='new-finding']")?.addEventListener("click", createFinding);
@@ -1147,6 +1152,20 @@
     const file = document.querySelector("[data-evidence-file]")?.files?.[0];
     const manualValue = document.querySelector("[data-evidence-name]").value.trim();
     const note = document.querySelector("[data-evidence-note]").value.trim() || "Evidencia cargada para revision.";
+    if (!file && !manualValue) {
+      state.evidenceMessage = "Selecciona un archivo o pega un enlace de evidencia.";
+      render();
+      return;
+    }
+    if (file && file.size > 8 * 1024 * 1024) {
+      state.evidenceMessage = "El archivo supera 8 MB. Sube un archivo mas liviano o pega un enlace Drive.";
+      render();
+      return;
+    }
+
+    e.target.disabled = true;
+    e.target.textContent = "Subiendo...";
+    state.evidenceMessage = file ? "Subiendo evidencia a Drive..." : "Guardando enlace de evidencia...";
     let evidence = manualValue
       ? { name: manualValue, url: isUrl(manualValue) ? manualValue : "", provider: "manual" }
       : { name: "evidencia-drive", url: "", provider: "manual" };
@@ -1155,7 +1174,7 @@
       try {
         evidence = await uploadEvidenceToDrive(f, file);
       } catch (error) {
-        state.formError = `No se pudo subir evidencia a Drive: ${error.message}`;
+        state.evidenceMessage = `No se pudo subir evidencia a Drive: ${error.message}`;
         render();
         return;
       }
@@ -1166,6 +1185,7 @@
     f.history.push(event(currentUser().name, `Subio evidencia: ${evidence.name}`));
     queueEmail("u-admin", `Evidencia pendiente ${f.id}`, `${ownerName(f.ownerId)} cargo evidencia para revision.`);
     state.formError = "";
+    state.evidenceMessage = "Evidencia cargada correctamente.";
     saveData();
     render();
   }
@@ -1476,9 +1496,10 @@
       const payload = await response.json();
       const storage = payload.storage?.provider || "desconocido";
       const mailer = payload.mailer?.provider || "sin correo";
+      const drive = payload.drive?.configured ? "drive OK" : "drive sin configurar";
       const importStatus = Number(payload.autoImportMinutes || 0) ? `autoimport ${payload.autoImportMinutes} min` : "autoimport off";
       const reminderStatus = Number(payload.autoReminderMinutes || 0) ? `recordatorios ${payload.autoReminderMinutes} min` : "recordatorios off";
-      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. ${importStatus}. ${reminderStatus}.`);
+      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. ${drive}. ${importStatus}. ${reminderStatus}.`);
     } catch (error) {
       addImportLog(`Backend no responde: ${error.message}.`);
     }
