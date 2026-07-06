@@ -1,15 +1,16 @@
 (function () {
   const STORAGE_KEY = "obraSafetyFindings.v1";
+  const SESSION_KEY = "obraSafetyFindings.sessionUser";
   const today = new Date("2026-07-03T12:00:00");
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
   let remoteStateLoaded = false;
 
   const people = [
-    { id: "u-admin", name: "Carolina Rivas", role: "admin", email: "carolina.rivas@empresa.cl", area: "Prevencion" },
-    { id: "u-juan", name: "Juan Perez", role: "usuario", email: "juan.perez@empresa.cl", area: "Terreno" },
-    { id: "u-maria", name: "Maria Soto", role: "usuario", email: "maria.soto@empresa.cl", area: "Calidad" },
-    { id: "u-diego", name: "Diego Morales", role: "usuario", email: "diego.morales@empresa.cl", area: "Subcontratos" }
+    { id: "u-admin", name: "Carolina Rivas", role: "admin", email: "carolina.rivas@empresa.cl", area: "Prevencion", pin: "1234" },
+    { id: "u-juan", name: "Juan Perez", role: "usuario", email: "juan.perez@empresa.cl", area: "Terreno", pin: "1234" },
+    { id: "u-maria", name: "Maria Soto", role: "usuario", email: "maria.soto@empresa.cl", area: "Calidad", pin: "1234" },
+    { id: "u-diego", name: "Diego Morales", role: "usuario", email: "diego.morales@empresa.cl", area: "Subcontratos", pin: "1234" }
   ];
 
   const defaultActionCriteria = [
@@ -143,7 +144,7 @@
 
   const state = {
     view: "dashboard",
-    currentUserId: "u-admin",
+    currentUserId: sessionStorage.getItem(SESSION_KEY) || "",
     filters: { site: "Todos", status: "Todos", criticality: "Todos", priority: "Todos", ownerId: "Todos", from: "", to: "" },
     chartVisibility: { status: true, criticality: true, priority: true, compliance: true, trend: true, progress: true, pendingOwners: true, slowOwners: true, avgResolve: true, deadline: true, upcoming: true, nonProcessable: true },
     selectedId: "",
@@ -165,6 +166,7 @@
     data.people = data.people || people;
     data.people.forEach((person) => {
       if (person.role === "manager") person.role = "usuario";
+      if (!person.pin) person.pin = "1234";
     });
     data.findings = data.findings || [];
     data.emails = data.emails || [];
@@ -221,11 +223,12 @@
   }
 
   function currentUser() {
-    return state.data.people.find((p) => p.id === state.currentUserId) || state.data.people[0];
+    return state.data.people.find((p) => p.id === state.currentUserId) || null;
   }
 
   function visibleFindings() {
     const user = currentUser();
+    if (!user) return [];
     return state.data.findings.filter((finding) => user.role === "admin" || finding.ownerId === user.id);
   }
 
@@ -350,6 +353,11 @@
   function render() {
     refreshOverdue();
     const user = currentUser();
+    if (!user) {
+      document.getElementById("app").innerHTML = renderLogin();
+      bindLoginEvents();
+      return;
+    }
     document.getElementById("app").innerHTML = `
       <div class="shell">
         <aside class="sidebar">
@@ -362,7 +370,9 @@
           </div>
           <div class="profile">
             <label>Cuenta activa</label>
-            <select data-action="switch-user">${state.data.people.map((p) => `<option value="${p.id}" ${p.id === user.id ? "selected" : ""}>${esc(p.name)} · ${p.role === "admin" ? "Admin" : "Usuario"}</option>`).join("")}</select>
+            <strong>${esc(user.name)}</strong>
+            <span>${esc(user.role === "admin" ? "Admin" : "Usuario")}</span>
+            <button class="btn secondary compact" data-action="logout">Salir</button>
           </div>
           <nav class="nav">
             ${navButton("dashboard", "Dashboard")}
@@ -380,6 +390,58 @@
       ${state.selectedId ? renderFindingModal(state.selectedId) : ""}
     `;
     bindEvents();
+  }
+
+  function renderLogin() {
+    return `
+      <div class="login-shell">
+        <section class="login-card">
+          <div class="brand login-brand">
+            <div class="brand-mark">HS</div>
+            <div>
+              <h1>Hallazgos Seguridad</h1>
+              <p>Aduccion Lyon Valparaiso / Terratunel SpA</p>
+            </div>
+          </div>
+          <form data-action="login" class="form-grid">
+            <div class="field span-2">
+              <label>Usuario</label>
+              <select name="userId">${state.data.people.map((person) => `<option value="${esc(person.id)}">${esc(person.name)} - ${esc(person.role === "admin" ? "Admin" : "Usuario")}</option>`).join("")}</select>
+            </div>
+            <div class="field span-2">
+              <label>PIN</label>
+              <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Ingresa tu PIN">
+            </div>
+            ${state.formError ? `<div class="notice span-2">${esc(state.formError)}</div>` : ""}
+            <div class="actions span-2" style="justify-content:flex-start">
+              <button class="btn" type="submit">Entrar</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    `;
+  }
+
+  function bindLoginEvents() {
+    document.querySelector("[data-action='login']")?.addEventListener("submit", loginUser);
+  }
+
+  function loginUser(e) {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const userId = form.get("userId");
+    const pin = String(form.get("pin") || "").trim();
+    const user = state.data.people.find((person) => person.id === userId);
+    if (!user || String(user.pin || "") !== pin) {
+      state.formError = "Usuario o PIN incorrecto.";
+      render();
+      return;
+    }
+    state.currentUserId = user.id;
+    sessionStorage.setItem(SESSION_KEY, user.id);
+    state.formError = "";
+    state.view = "dashboard";
+    render();
   }
 
   function navButton(view, label) {
@@ -736,10 +798,10 @@
       <section class="grid two-col">
         <div class="panel">
           <div class="panel-header"><h3>Carga masiva de personas</h3></div>
-          <div class="notice">Formato recomendado: nombre,correo,area,rol. Si el correo o nombre ya existe, se actualiza.</div>
+          <div class="notice">Formato recomendado: nombre,correo,area,rol,pin. Si el correo o nombre ya existe, se actualiza.</div>
           <div class="field" style="margin-top:12px">
             <label>Listado CSV</label>
-            <textarea data-people-csv placeholder="nombre,correo,area,rol&#10;Mauricio Munoz,mauricio@empresa.cl,Produccion,usuario&#10;Karina Espinoza,karina@empresa.cl,Prevencion,usuario"></textarea>
+            <textarea data-people-csv placeholder="nombre,correo,area,rol,pin&#10;Mauricio Munoz,mauricio@empresa.cl,Produccion,usuario,1234&#10;Karina Espinoza,karina@empresa.cl,Prevencion,usuario,1234"></textarea>
           </div>
           <div class="field" style="margin-top:12px">
             <label>O cargar archivo CSV</label>
@@ -759,7 +821,7 @@
         <div class="panel-header"><h3>Directorio editable</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Acciones</th><th>Nombre</th><th>Correo</th><th>Area</th><th>Rol</th><th>Pendientes</th></tr></thead>
+            <thead><tr><th>Acciones</th><th>Nombre</th><th>Correo</th><th>Area</th><th>Rol</th><th>PIN</th><th>Pendientes</th></tr></thead>
             <tbody>
               ${state.data.people.map((p) => `
                 <tr>
@@ -768,6 +830,7 @@
                   <td><input type="email" value="${esc(p.email)}" data-person-field="email" data-person-id="${esc(p.id)}"></td>
                   <td><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
                   <td><select data-person-field="role" data-person-id="${esc(p.id)}">${options(["admin", "usuario"], p.role)}</select></td>
+                  <td><input type="password" value="${esc(p.pin || "")}" data-person-field="pin" data-person-id="${esc(p.id)}"></td>
                   <td>${visibleFindings().filter((finding) => finding.ownerId === p.id && finding.status !== "Cerrado").length}</td>
                 </tr>
               `).join("")}
@@ -901,11 +964,7 @@
 
   function bindEvents() {
     document.querySelectorAll("[data-action='view']").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
-    document.querySelector("[data-action='switch-user']")?.addEventListener("change", (e) => {
-      state.currentUserId = e.target.value;
-      state.view = "dashboard";
-      render();
-    });
+    document.querySelector("[data-action='logout']")?.addEventListener("click", logoutUser);
     document.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("change", (e) => setFilter(e.target.dataset.filter, e.target.value)));
     document.querySelectorAll("[data-chart-toggle]").forEach((input) => input.addEventListener("change", (e) => {
       state.chartVisibility[e.target.dataset.chartToggle] = e.target.checked;
@@ -951,7 +1010,7 @@
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
     document.querySelector("[data-action='sample-people']")?.addEventListener("click", () => {
-      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol\nMauricio Munoz,mauricio.munoz@empresa.cl,Produccion,usuario\nRuben Maure,ruben.maure@empresa.cl,Terreno,usuario\nKarina Espinoza,karina.espinoza@empresa.cl,Prevencion,usuario\nJoaquin Atena,joaquin.atena@empresa.cl,Electricidad,usuario";
+      document.querySelector("[data-people-csv]").value = "nombre,correo,area,rol,pin\nMauricio Munoz,mauricio.munoz@empresa.cl,Produccion,usuario,1234\nRuben Maure,ruben.maure@empresa.cl,Terreno,usuario,1234\nKarina Espinoza,karina.espinoza@empresa.cl,Prevencion,usuario,1234\nJoaquin Atena,joaquin.atena@empresa.cl,Electricidad,usuario,1234";
     });
     document.querySelectorAll("[data-action='delete-person']").forEach((button) => button.addEventListener("click", deletePerson));
     document.querySelector("[data-action='reset-data']")?.addEventListener("click", resetData);
@@ -959,6 +1018,15 @@
     document.querySelector("[data-people-file]")?.addEventListener("change", loadPeopleFile);
     document.querySelector("[data-action='generate-reminders']")?.addEventListener("click", generateReminders);
     document.querySelector("[data-action='save-settings']")?.addEventListener("click", saveSettings);
+  }
+
+  function logoutUser() {
+    sessionStorage.removeItem(SESSION_KEY);
+    state.currentUserId = "";
+    state.view = "dashboard";
+    state.selectedId = "";
+    state.formError = "";
+    render();
   }
 
   function refreshOverdue() {
@@ -1462,7 +1530,7 @@
     const rows = parseCsv(text).filter((row) => row.some(Boolean));
     if (!rows.length) return;
     const header = rows[0] || [];
-    const hasHeader = header.some((cell) => ["nombre", "name", "correo", "email", "area", "rol", "role"].includes(normalizeHeader(cell)));
+    const hasHeader = header.some((cell) => ["nombre", "name", "correo", "email", "area", "rol", "role", "pin"].includes(normalizeHeader(cell)));
     const records = hasHeader ? rows.slice(1).map((row) => mapPersonRow(header, row)) : rows.map(mapSimplePersonRow);
     let created = 0;
     let updated = 0;
@@ -1474,6 +1542,7 @@
         existing.email = record.email || existing.email;
         existing.area = record.area || existing.area;
         existing.role = record.role || existing.role;
+        existing.pin = record.pin || existing.pin || "1234";
         updated += 1;
       } else {
         state.data.people.push({
@@ -1481,7 +1550,8 @@
           name: record.name,
           email: record.email || `${normalizeHeader(record.name).replace(/[^a-z0-9]+/g, ".")}@empresa.cl`,
           area: record.area || "Obra",
-          role: record.role || "usuario"
+          role: record.role || "usuario",
+          pin: record.pin || "1234"
         });
         created += 1;
       }
@@ -1501,12 +1571,13 @@
       name: value(["nombre", "name", "responsable"]),
       email: value(["correo", "email", "mail"]),
       area: value(["area", "cargo", "especialidad"]),
-      role: value(["rol", "role", "perfil"])
+      role: value(["rol", "role", "perfil"]),
+      pin: value(["pin", "clave", "password"])
     });
   }
 
   function mapSimplePersonRow(row) {
-    return normalizePersonRecord({ name: row[0], email: row[1], area: row[2], role: row[3] });
+    return normalizePersonRecord({ name: row[0], email: row[1], area: row[2], role: row[3], pin: row[4] });
   }
 
   function normalizePersonRecord(record) {
@@ -1516,7 +1587,8 @@
       name: String(record.name || "").trim(),
       email: String(record.email || "").trim(),
       area: String(record.area || "Obra").trim(),
-      role
+      role,
+      pin: String(record.pin || "").trim()
     };
   }
 
@@ -1743,7 +1815,7 @@
 
   function addPerson() {
     const index = state.data.people.length + 1;
-    const person = { id: `u-nuevo-${Date.now()}`, name: `Usuario ${index}`, role: "usuario", email: `usuario${index}@empresa.cl`, area: "Obra" };
+    const person = { id: `u-nuevo-${Date.now()}`, name: `Usuario ${index}`, role: "usuario", email: `usuario${index}@empresa.cl`, area: "Obra", pin: "1234" };
     state.data.people.push(person);
     saveData();
     render();
