@@ -1020,8 +1020,8 @@
                   <td>${esc(mail.at)}</td>
                   <td>${esc(mail.to)}</td>
                   <td><strong>${esc(mail.subject)}</strong></td>
-                  <td><span class="badge ${badgeClass(mail.status || "simulado")}">${esc(emailStatusLabel(mail))}</span>${mail.errorMessage ? `<div class="muted-note">${esc(mail.errorMessage)}</div>` : ""}</td>
-                  <td>${esc(mail.body)}</td>
+                  <td><span class="badge ${badgeClass(mail.status || "simulado")}">${esc(emailStatusLabel(mail))}</span>${mail.provider ? `<div class="muted-note">${esc(mail.provider)}</div>` : ""}</td>
+                  <td>${mail.errorMessage ? `<strong>Error:</strong> ${esc(mail.errorMessage)}<br>` : ""}${esc(mail.body)}</td>
                 </tr>
               `).join("") || `<tr><td colspan="5" class="empty">Aun no hay correos generados.</td></tr>`}
             </tbody>
@@ -1563,7 +1563,11 @@
   }
 
   function sendTestEmails() {
-    const recipients = state.data.people.filter((person) => person.email && ["admin", "usuario"].includes(person.role));
+    const recipients = state.data.people.filter((person) =>
+      person.email
+      && ["admin", "usuario"].includes(person.role)
+      && !person.email.toLowerCase().endsWith("@empresa.cl")
+    );
     if (!recipients.length) {
       state.formError = "No hay usuarios con correo para probar.";
       render();

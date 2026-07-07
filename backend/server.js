@@ -218,7 +218,7 @@ async function sendOutboundEmail(payload) {
   } catch (error) {
     return {
       status: "failed",
-      provider: "sendgrid",
+      provider: getMailerStatus().provider,
       providerMessageId: "",
       errorMessage: error.message
     };
