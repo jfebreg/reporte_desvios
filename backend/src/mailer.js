@@ -97,6 +97,8 @@ function createSmtpClient(socket) {
     buffer += chunk.toString("utf8");
     flushWaiters();
   });
+  socket.on("error", (error) => rejectPending(error));
+  socket.on("close", () => rejectPending(new Error("Gmail SMTP cerro la conexion antes de responder.")));
 
   function flushWaiters() {
     while (waiters.length && hasCompleteReply(buffer)) {
@@ -145,6 +147,13 @@ function createSmtpClient(socket) {
       socket.end();
     }
   };
+
+  function rejectPending(error) {
+    while (waiters.length) {
+      const waiter = waiters.shift();
+      waiter.reject(error);
+    }
+  }
 }
 
 function hasCompleteReply(text) {

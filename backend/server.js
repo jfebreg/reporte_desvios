@@ -216,13 +216,25 @@ async function sendOutboundEmail(payload) {
       errorMessage: ""
     };
   } catch (error) {
-    console.error(`Correo fallido para ${to}: ${error.message}`);
+    const errorMessage = describeError(error);
+    console.error(`Correo fallido para ${to}: ${errorMessage}`);
     return {
       status: "failed",
       provider: getMailerStatus().provider,
       providerMessageId: "",
-      errorMessage: error.message
+      errorMessage
     };
+  }
+}
+
+function describeError(error) {
+  if (!error) return "Error desconocido.";
+  if (error.stack) return error.stack;
+  if (error.message) return error.message;
+  try {
+    return JSON.stringify(error);
+  } catch (_) {
+    return String(error);
   }
 }
 
