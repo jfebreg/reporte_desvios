@@ -1,6 +1,8 @@
 # Correo real con SendGrid
 
-El backend puede enviar correos reales desde Render usando SendGrid. Si `SENDGRID_API_KEY` esta vacio o vale `disabled`, la app mantiene los correos como simulados.
+SendGrid queda disponible como opcion productiva alternativa. Para el piloto actual se recomienda Gmail, documentado en `docs/CORREO_GMAIL.md`.
+
+El backend puede enviar correos reales desde Render usando SendGrid. Si Gmail no esta configurado y `SENDGRID_API_KEY` esta vacio o vale `disabled`, la app mantiene los correos como simulados.
 
 ## Variables en Render
 
