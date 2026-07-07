@@ -10,6 +10,7 @@ En `reporte-desvios-api > Environment` configura:
 GMAIL_USER=jfebre@iccingenieria.cl
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 MAIL_FROM=jfebre@iccingenieria.cl
+SMTP_PORT=587
 SENDGRID_API_KEY=disabled
 ```
 

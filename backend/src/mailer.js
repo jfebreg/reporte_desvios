@@ -1,3 +1,4 @@
+const net = require("node:net");
 const tls = require("node:tls");
 
 function getMailerStatus() {
@@ -57,6 +58,11 @@ async function sendGmailSmtp({ to, subject, body }) {
   try {
     await smtp.expect(220);
     await smtp.command(`EHLO ${process.env.SMTP_HELO || "reporte-desvios.local"}`, 250);
+    if (smtp.requiresStartTls()) {
+      await smtp.command("STARTTLS", 220);
+      await smtp.upgradeToTls();
+      await smtp.command(`EHLO ${process.env.SMTP_HELO || "reporte-desvios.local"}`, 250);
+    }
     await smtp.command("AUTH LOGIN", 334);
     await smtp.command(Buffer.from(process.env.GMAIL_USER).toString("base64"), 334);
     await smtp.command(Buffer.from(gmailAppPassword()).toString("base64"), 235);
@@ -73,32 +79,28 @@ async function sendGmailSmtp({ to, subject, body }) {
 
 function openSmtpConnection() {
   return new Promise((resolve, reject) => {
-    const socket = tls.connect({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: Number(process.env.SMTP_PORT || 465),
-      servername: process.env.SMTP_HOST || "smtp.gmail.com",
-      rejectUnauthorized: true
-    });
-    const smtp = createSmtpClient(socket);
-    socket.once("secureConnect", () => resolve(smtp));
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const port = Number(process.env.SMTP_PORT || 587);
+    const socket = port === 465
+      ? tls.connect({ host, port, servername: host, rejectUnauthorized: true })
+      : net.connect({ host, port });
+    const smtp = createSmtpClient(socket, { host, port, secure: port === 465 });
+    const readyEvent = port === 465 ? "secureConnect" : "connect";
+    socket.once(readyEvent, () => resolve(smtp));
     socket.once("error", reject);
     socket.setTimeout(20000, () => {
       socket.destroy();
-      reject(new Error("Gmail SMTP no respondio dentro del tiempo esperado."));
+      reject(new Error(`Gmail SMTP no respondio dentro del tiempo esperado en ${host}:${port}.`));
     });
   });
 }
 
-function createSmtpClient(socket) {
+function createSmtpClient(socket, options) {
+  let activeSocket = socket;
   let buffer = "";
   const waiters = [];
 
-  socket.on("data", (chunk) => {
-    buffer += chunk.toString("utf8");
-    flushWaiters();
-  });
-  socket.on("error", (error) => rejectPending(error));
-  socket.on("close", () => rejectPending(new Error("Gmail SMTP cerro la conexion antes de responder.")));
+  bindSocket(activeSocket);
 
   function flushWaiters() {
     while (waiters.length && hasCompleteReply(buffer)) {
@@ -136,15 +138,47 @@ function createSmtpClient(socket) {
   }
 
   async function command(commandText, expectedCodes) {
-    socket.write(`${commandText}\r\n`);
+    activeSocket.write(`${commandText}\r\n`);
     return expect(expectedCodes);
+  }
+
+  function upgradeToTls() {
+    return new Promise((resolve, reject) => {
+      activeSocket.removeAllListeners("data");
+      activeSocket.removeAllListeners("error");
+      activeSocket.removeAllListeners("close");
+      activeSocket = tls.connect({
+        socket: activeSocket,
+        servername: options.host,
+        rejectUnauthorized: true
+      });
+      bindSocket(activeSocket);
+      activeSocket.once("secureConnect", () => {
+        options.secure = true;
+        resolve();
+      });
+      activeSocket.once("error", reject);
+    });
+  }
+
+  function bindSocket(nextSocket) {
+    nextSocket.on("data", (chunk) => {
+      buffer += chunk.toString("utf8");
+      flushWaiters();
+    });
+    nextSocket.on("error", (error) => rejectPending(error));
+    nextSocket.on("close", () => rejectPending(new Error("Gmail SMTP cerro la conexion antes de responder.")));
   }
 
   return {
     expect,
     command,
+    upgradeToTls,
+    requiresStartTls() {
+      return !options.secure;
+    },
     close() {
-      socket.end();
+      activeSocket.end();
     }
   };
 
