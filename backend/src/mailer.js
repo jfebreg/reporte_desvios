@@ -2,19 +2,25 @@ const net = require("node:net");
 const tls = require("node:tls");
 
 function getMailerStatus() {
+  const resendConfigured = isResendConfigured();
   const gmailConfigured = isGmailConfigured();
   const sendGridConfigured = isSendGridConfigured();
-  const provider = gmailConfigured ? "gmail" : sendGridConfigured ? "sendgrid" : "simulado";
+  const provider = resendConfigured ? "resend" : gmailConfigured ? "gmail" : sendGridConfigured ? "sendgrid" : "simulado";
   return {
     provider,
     from: mailFrom(),
-    configured: gmailConfigured || sendGridConfigured,
+    configured: resendConfigured || gmailConfigured || sendGridConfigured,
+    resendConfigured,
     gmailConfigured,
     sendGridConfigured
   };
 }
 
 async function sendMail({ to, subject, body }) {
+  if (isResendConfigured()) {
+    return sendResend({ to, subject, body });
+  }
+
   if (isGmailConfigured()) {
     return sendGmailSmtp({ to, subject, body });
   }
@@ -24,6 +30,35 @@ async function sendMail({ to, subject, body }) {
   }
 
   return { status: "simulated", provider: "simulado" };
+}
+
+async function sendResend({ to, subject, body }) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: mailFrom(),
+      to: [to],
+      subject,
+      text: body
+    })
+  });
+
+  const payload = await response.text();
+  if (!response.ok) {
+    throw new Error(`Resend fallo ${response.status}: ${payload}`);
+  }
+
+  let providerMessageId = "";
+  try {
+    providerMessageId = JSON.parse(payload).id || "";
+  } catch (_) {
+    providerMessageId = "";
+  }
+  return { status: "sent", provider: "resend", providerMessageId };
 }
 
 async function sendSendGrid({ to, subject, body }) {
@@ -233,6 +268,11 @@ function isGmailConfigured() {
 
 function gmailAppPassword() {
   return String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+}
+
+function isResendConfigured() {
+  const apiKey = process.env.RESEND_API_KEY || "";
+  return Boolean(apiKey && apiKey !== "disabled" && mailFrom());
 }
 
 function isSendGridConfigured() {
