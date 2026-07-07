@@ -1610,7 +1610,7 @@
     email.status = result.status || "failed";
     email.provider = result.provider || email.provider || "";
     email.providerMessageId = result.providerMessageId || "";
-    email.errorMessage = result.errorMessage || "";
+    email.errorMessage = result.errorMessage || result.message || result.error || (email.status === "failed" ? "El backend marco el envio como fallido, pero no entrego detalle. Revisa Logs en Render." : "");
     saveData();
     if (state.view === "emails") render();
   }

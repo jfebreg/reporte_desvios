@@ -216,6 +216,7 @@ async function sendOutboundEmail(payload) {
       errorMessage: ""
     };
   } catch (error) {
+    console.error(`Correo fallido para ${to}: ${error.message}`);
     return {
       status: "failed",
       provider: getMailerStatus().provider,
