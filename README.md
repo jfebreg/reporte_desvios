@@ -59,6 +59,10 @@ La configuracion de Google Sheets API esta en `docs/GOOGLE_SHEETS_API.md`.
 El despliegue del backend esta en `docs/DESPLEGAR_BACKEND.md`.
 Incluye `render.yaml` para crear el servicio en Render con menos pasos.
 
+## App Android
+
+El proyecto Android para generar la APK esta en `android/`. Revisa `docs/APK_ANDROID.md`.
+
 ## Formato CSV de importacion
 
 ```csv

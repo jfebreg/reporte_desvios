@@ -586,8 +586,8 @@
           </div>
           <form data-action="login" class="form-grid">
             <div class="field span-2">
-              <label>Usuario</label>
-              <select name="userId">${state.data.people.map((person) => `<option value="${esc(person.id)}">${esc(person.name)} - ${esc(person.role === "admin" ? "Admin" : "Usuario")}</option>`).join("")}</select>
+              <label>Correo</label>
+              <input name="email" type="email" autocomplete="username" placeholder="tu.correo@empresa.cl">
             </div>
             <div class="field span-2">
               <label>PIN</label>
@@ -610,9 +610,9 @@
   function loginUser(e) {
     e.preventDefault();
     const form = new FormData(e.target);
-    const userId = form.get("userId");
+    const email = normalizeHeader(form.get("email"));
     const pin = String(form.get("pin") || "").trim();
-    const user = state.data.people.find((person) => person.id === userId);
+    const user = state.data.people.find((person) => normalizeHeader(person.email) === email);
     if (!user || String(user.pin || "") !== pin) {
       state.formError = "Usuario o PIN incorrecto.";
       render();
