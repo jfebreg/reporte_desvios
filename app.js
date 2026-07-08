@@ -1120,7 +1120,7 @@
           <div class="grid two-col">
             <form class="panel form-grid" data-action="save-finding">
               <div class="field"><label>Fecha emision</label><input value="${esc(f.createdAt || f.detectedAt || "")}" disabled></div>
-              <div class="field"><label>Fecha deteccion</label><input value="${esc(f.detectedAt || f.createdAt || "")}" disabled></div>
+              <div class="field"><label>Fecha deteccion</label><input type="date" name="detectedAt" value="${esc(f.detectedAt || f.createdAt || "")}" ${admin ? "" : "disabled"}></div>
               <div class="field"><label>Obra</label><select name="site" ${admin ? "" : "disabled"}>${options(siteCatalog(), f.site)}</select></div>
               <div class="field"><label>Ubicacion</label><input name="location" value="${esc(f.location)}" ${admin ? "" : "disabled"}></div>
               <div class="field span-2"><label>Descripcion</label><textarea name="description" ${admin ? "" : "disabled"}>${esc(f.description)}</textarea></div>
@@ -1469,7 +1469,7 @@
       return;
     }
     state.formError = "";
-    ["site", "location", "description", "criticality", "priority", "dueDate", "status", "comments", "actionCriteria", "nonProcessableReason"].forEach((key) => {
+    ["site", "location", "description", "detectedAt", "criticality", "priority", "dueDate", "status", "comments", "actionCriteria", "nonProcessableReason"].forEach((key) => {
       if (form.has(key)) f[key] = form.get(key);
     });
     if (form.has("ownerIds")) setFindingOwners(f, form.getAll("ownerIds"));
