@@ -6,6 +6,7 @@
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
   const PUBLIC_REPORT_MODE = new URLSearchParams(window.location.search).has("reportar");
   const DATA_MIGRATION_VERSION = "real-users-gsheet-cleanup-2026-07-06";
+  const DELETE_FINDINGS_MIGRATION_VERSION = "delete-h5-h7-2026-07-08";
   const REAL_EMAIL_TEST_SUBJECT = "Prueba correo Hallazgos Seguridad";
   let remoteStateLoaded = false;
   let remoteStateLoading = null;
@@ -204,6 +205,7 @@
       if (!data.settings.sites.includes(finding.site)) finding.site = data.settings.defaultSite;
     });
     applyRealUsersMigration(data);
+    applyDeleteFindingsMigration(data);
     return data;
   }
 
@@ -248,6 +250,22 @@
       detail: `Migracion usuarios reales aplicada. Hallazgos no GSheet eliminados: ${removedFindings}.`
     });
     data.settings.dataMigrationVersion = DATA_MIGRATION_VERSION;
+    dataChangedByMigration = true;
+  }
+
+  function applyDeleteFindingsMigration(data) {
+    if (data.settings.deleteFindingsMigrationVersion === DELETE_FINDINGS_MIGRATION_VERSION) return;
+    const deleteIds = new Set(["H-2026-005", "H-2026-006", "H-2026-007"]);
+    const beforeFindings = data.findings.length;
+    data.findings = data.findings.filter((finding) => !deleteIds.has(finding.id));
+    const removedFindings = beforeFindings - data.findings.length;
+    data.imports.unshift({
+      at: todayDate(),
+      detail: removedFindings
+        ? `Limpieza solicitada: hallazgos H-2026-005, H-2026-006 y H-2026-007 eliminados.`
+        : "Limpieza solicitada revisada: H-2026-005, H-2026-006 y H-2026-007 no estaban presentes."
+    });
+    data.settings.deleteFindingsMigrationVersion = DELETE_FINDINGS_MIGRATION_VERSION;
     dataChangedByMigration = true;
   }
 
@@ -542,6 +560,17 @@
       ${state.selectedId ? renderFindingModal(state.selectedId) : ""}
     `;
     bindEvents();
+  }
+
+  function renderBoot(message) {
+    document.getElementById("app").innerHTML = `
+      <main class="content public-report">
+        <section class="panel">
+          <div class="panel-header"><h3>Hallazgos Seguridad</h3></div>
+          <p class="plain-text">${esc(message)}</p>
+        </section>
+      </main>
+    `;
   }
 
   function renderLogin() {
@@ -2303,6 +2332,13 @@
     render();
   }
 
-  render();
-  loadRemoteState();
+  async function initialize() {
+    if (API_BASE_URL) {
+      renderBoot("Conectando con servidor productivo...");
+      await loadRemoteState({ render: false });
+    }
+    render();
+  }
+
+  initialize();
 })();
