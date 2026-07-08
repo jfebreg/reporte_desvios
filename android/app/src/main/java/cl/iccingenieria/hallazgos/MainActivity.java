@@ -19,7 +19,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
-    private static final String START_URL = "https://jfebreg.github.io/reporte_desvios/?v=perfiles-apk-1";
+    private static final String START_URL = "https://jfebreg.github.io/reporte_desvios/?v=mobile-apk-1";
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int PERMISSION_REQUEST = 1002;
 
@@ -56,6 +56,9 @@ public class MainActivity extends Activity {
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(true);
+        settings.setUseWideViewPort(false);
+        settings.setLoadWithOverviewMode(false);
+        settings.setTextZoom(100);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override

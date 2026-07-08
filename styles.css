@@ -30,6 +30,10 @@ button, input, select, textarea {
   font: inherit;
 }
 
+input, select, textarea {
+  font-size: 16px;
+}
+
 button {
   border: 0;
   cursor: pointer;
@@ -693,20 +697,201 @@ th {
 }
 
 @media (max-width: 700px) {
+  body {
+    min-width: 0;
+  }
+
+  .shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 10px 12px;
+    gap: 10px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.16);
+  }
+
+  .brand {
+    min-height: 38px;
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 7px;
+    font-size: 13px;
+  }
+
+  .brand h1 {
+    font-size: 15px;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .profile {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px 8px;
+    padding: 8px;
+  }
+
+  .profile label,
+  .profile span {
+    display: none;
+  }
+
+  .profile strong {
+    font-size: 13px;
+  }
+
+  .profile .btn {
+    min-height: 32px;
+  }
+
+  .nav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav button {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.08);
+  }
+
   .content {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .public-report {
+    padding: 12px;
+  }
+
+  .login-shell {
+    padding: 12px;
+    align-items: start;
+  }
+
+  .login-card {
     padding: 16px;
+    margin-top: 8px;
   }
 
   .topbar {
     display: grid;
+    gap: 10px;
+  }
+
+  .topbar h2 {
+    font-size: 26px;
+    line-height: 1.1;
+  }
+
+  .topbar p {
+    font-size: 14px;
   }
 
   .actions {
     justify-content: start;
   }
 
+  .actions .btn,
+  .topbar .btn {
+    flex: 1 1 auto;
+  }
+
   .kpis, .charts, .cards, .two-col, .filters, .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .kpi,
+  .panel {
+    padding: 12px;
+    border-radius: 7px;
+  }
+
+  .kpi strong {
+    font-size: 24px;
+  }
+
+  .filters {
+    padding: 12px;
+  }
+
+  .charts {
+    gap: 12px;
+  }
+
+  .chart {
+    min-height: 0;
+  }
+
+  .bar-row {
+    grid-template-columns: 86px 1fr 32px;
+    gap: 8px;
+  }
+
+  .table-wrap {
+    margin: 0 -12px;
+    padding: 0 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 680px;
+  }
+
+  th, td {
+    padding: 9px 8px;
+    font-size: 12px;
+  }
+
+  .badge {
+    min-height: 22px;
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .modal-backdrop {
+    align-items: start;
+    padding: 8px;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100vh - 16px);
+    padding: 12px;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+  }
+
+  .panel-header h3 {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .owners-field,
+  .compact-field {
+    min-width: 0;
+    width: 100%;
   }
 
   .span-2 {
