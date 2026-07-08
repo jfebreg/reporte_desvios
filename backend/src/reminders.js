@@ -7,11 +7,9 @@ async function runReminderJob(state) {
   let created = 0;
 
   for (const finding of findings) {
-    if (!finding.ownerId || !finding.dueDate) continue;
+    const ownerIds = findingOwnerIds(finding);
+    if (!ownerIds.length || !finding.dueDate) continue;
     if (["Cerrado", "Completado por responsable", "No procesable"].includes(finding.status)) continue;
-
-    const owner = (state.people || []).find((person) => person.id === finding.ownerId);
-    if (!owner?.email) continue;
 
     const daysToDue = diffDays(finding.dueDate, today);
     let subject = "";
@@ -28,37 +26,49 @@ async function runReminderJob(state) {
       continue;
     }
 
-    if (alreadyQueued(emails, owner.email, subject, today)) continue;
+    const owners = ownerIds
+      .map((id) => (state.people || []).find((person) => person.id === id))
+      .filter((owner) => owner?.email);
+    if (!owners.length) continue;
 
-    const email = {
-      at: today,
-      to: owner.email,
-      subject,
-      body,
-      status: "pending",
-      provider: "",
-      providerMessageId: "",
-      errorMessage: ""
-    };
+    let sentForFinding = 0;
+    for (const owner of owners) {
+      if (alreadyQueued(emails, owner.email, subject, today)) continue;
 
-    try {
-      const result = await sendMail({ to: owner.email, subject, body });
-      email.status = result.status;
-      email.provider = result.provider;
-      email.providerMessageId = result.providerMessageId || "";
-    } catch (error) {
-      email.status = "failed";
-      email.errorMessage = error.message;
+      const email = {
+        at: today,
+        to: owner.email,
+        subject,
+        body,
+        status: "pending",
+        provider: "",
+        providerMessageId: "",
+        errorMessage: ""
+      };
+
+      try {
+        const result = await sendMail({ to: owner.email, subject, body });
+        email.status = result.status;
+        email.provider = result.provider;
+        email.providerMessageId = result.providerMessageId || "";
+      } catch (error) {
+        email.status = "failed";
+        email.errorMessage = error.message;
+      }
+
+      emails.unshift(email);
+      sentForFinding += 1;
     }
 
-    emails.unshift(email);
-    finding.history = finding.history || [];
-    finding.history.push({
-      at: today,
-      actor: "Sistema",
-      detail: `Recordatorio generado: ${subject}`
-    });
-    created += 1;
+    if (sentForFinding) {
+      finding.history = finding.history || [];
+      finding.history.push({
+        at: today,
+        actor: "Sistema",
+        detail: `Recordatorio generado: ${subject}`
+      });
+      created += sentForFinding;
+    }
   }
 
   state.emails = emails;
@@ -70,6 +80,12 @@ async function runReminderJob(state) {
 
 function alreadyQueued(emails, to, subject, date) {
   return emails.some((email) => email.to === to && email.subject === subject && email.at === date);
+}
+
+function findingOwnerIds(finding) {
+  const values = Array.isArray(finding.ownerIds) ? finding.ownerIds : [];
+  if (finding.ownerId) values.unshift(finding.ownerId);
+  return [...new Set(values.map((id) => String(id || "").trim()).filter(Boolean))];
 }
 
 function diffDays(date, baseDate) {

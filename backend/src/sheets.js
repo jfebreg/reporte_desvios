@@ -21,9 +21,9 @@ async function importFromGoogleSheets(state) {
       return;
     }
 
-    const ownerId = resolveOwner(state, record.responsible);
+    const ownerIds = resolveOwners(state, record.responsible);
     const sequence = String((state.findings || []).length + 1).padStart(3, "0");
-    const assignedEmailAt = ownerId ? todayIso() : "";
+    const assignedEmailAt = ownerIds.length ? todayIso() : "";
     const dueDate = assignedEmailAt ? dueDateFromCriteria(state, assignedEmailAt, record.actionCriteria) : "";
 
     state.findings.unshift({
@@ -41,17 +41,18 @@ async function importFromGoogleSheets(state) {
       actionCriteria: record.actionCriteria || "3 dias",
       criticality: record.criticality || "Media",
       priority: record.priority || "Media",
-      ownerId,
+      ownerId: ownerIds[0] || "",
+      ownerIds,
       assignedEmailAt,
       dueDate,
-      status: ownerId ? "Asignado" : "Nuevo",
+      status: ownerIds.length ? "Asignado" : "Nuevo",
       comments: "Importado automaticamente desde Google Sheets API.",
       evidence: [],
       closedAt: "",
       nonProcessableReason: "",
       history: [
         event("Sistema", "Importado automaticamente desde Google Sheets API"),
-        ...(ownerId ? [event("Sistema", `Responsable asignado: ${ownerName(state, ownerId)}`)] : [])
+        ...(ownerIds.length ? [event("Sistema", `Responsables asignados: ${ownerIds.map((id) => ownerName(state, id)).join(", ")}`)] : [])
       ]
     });
     existing.set(record.sheetRowId, state.findings[0]);
@@ -155,10 +156,10 @@ function updateExistingFinding(state, finding, record) {
   changed = fillIfBlank(finding, "criticality", record.criticality, ["Media"]) || changed;
   changed = fillIfBlank(finding, "priority", record.priority, ["Media"]) || changed;
 
-  if (!finding.ownerId && record.responsible) {
-    const ownerId = resolveOwner(state, record.responsible);
-    if (ownerId) {
-      finding.ownerId = ownerId;
+  if (!ownerIds(finding).length && record.responsible) {
+    const resolvedOwnerIds = resolveOwners(state, record.responsible);
+    if (resolvedOwnerIds.length) {
+      setFindingOwners(finding, resolvedOwnerIds);
       finding.assignedEmailAt = finding.assignedEmailAt || todayIso();
       finding.dueDate = finding.dueDate || dueDateFromCriteria(state, finding.assignedEmailAt, finding.actionCriteria);
       finding.status = finding.status === "Nuevo" ? "Asignado" : finding.status;
@@ -181,32 +182,33 @@ function fillIfBlank(target, key, value, blankValues = [""]) {
   return true;
 }
 
-function resolveOwner(state, name) {
-  const cleaned = String(name || "").split(",")[0].trim();
-  if (!cleaned) return "";
-  const normalized = normalize(cleaned);
-  const existing = (state.people || []).find((person) => normalize(person.name) === normalized);
-  if (existing) return existing.id;
-  const id = uniquePersonId(state, cleaned);
-  state.people.push({
-    id,
-    name: cleaned,
-    role: "usuario",
-    email: `${id.replace(/^u-/, "")}@empresa.cl`,
-    area: "Obra"
-  });
-  return id;
+function resolveOwners(state, value) {
+  return [...new Set(String(value || "")
+    .split(/[;,]/)
+    .map((item) => resolveExistingOwner(state, item))
+    .filter(Boolean))];
 }
 
-function uniquePersonId(state, name) {
-  const base = `u-${normalize(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}`;
-  let id = base;
-  let index = 2;
-  while ((state.people || []).some((person) => person.id === id)) {
-    id = `${base}-${index}`;
-    index += 1;
-  }
-  return id;
+function resolveExistingOwner(state, nameOrEmail) {
+  const cleaned = String(nameOrEmail || "").trim();
+  if (!cleaned) return "";
+  const normalized = normalize(cleaned);
+  const existing = (state.people || []).find((person) =>
+    ["admin", "usuario"].includes(person.role)
+    && (normalize(person.name) === normalized || normalize(person.email) === normalized)
+  );
+  return existing ? existing.id : "";
+}
+
+function ownerIds(finding) {
+  const values = Array.isArray(finding.ownerIds) ? finding.ownerIds : [];
+  if (finding.ownerId) values.unshift(finding.ownerId);
+  return [...new Set(values.map((id) => String(id || "").trim()).filter(Boolean))];
+}
+
+function setFindingOwners(finding, ids) {
+  finding.ownerIds = [...new Set((ids || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  finding.ownerId = finding.ownerIds[0] || "";
 }
 
 function dueDateFromCriteria(state, date, criteria) {

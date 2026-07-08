@@ -203,6 +203,40 @@ button {
   min-width: 190px;
 }
 
+.owners-field {
+  min-width: 280px;
+}
+
+.check-list {
+  display: grid;
+  gap: 7px;
+  max-height: 150px;
+  overflow: auto;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-weight: 700;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+}
+
+.check-row small {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .btn {
   min-height: 38px;
   border-radius: 7px;

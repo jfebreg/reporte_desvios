@@ -199,6 +199,8 @@
       if (normalizedFindingSite === "aduccion" || normalizedFindingSite.includes("aduccion lyon")) finding.site = defaultSettings.defaultSite;
       if (finding.assignedEmailAt === undefined) finding.assignedEmailAt = finding.ownerId ? finding.detectedAt || finding.createdAt || "" : "";
       if (finding.nonProcessableReason === undefined) finding.nonProcessableReason = "";
+      finding.ownerIds = normalizeOwnerIds(finding);
+      finding.ownerId = finding.ownerIds[0] || "";
       if (!data.settings.sites.includes(finding.site)) finding.site = data.settings.defaultSite;
     });
     applyRealUsersMigration(data);
@@ -237,7 +239,7 @@
       return rowId && !rowId.startsWith("WEB-") && !rowId.startsWith("MANUAL-");
     });
     data.findings.forEach((finding) => {
-      if (demoPersonIds.has(finding.ownerId)) finding.ownerId = "";
+      setFindingOwners(finding, normalizeOwnerIds(finding).filter((id) => !demoPersonIds.has(id)));
     });
 
     const removedFindings = beforeFindings - data.findings.length;
@@ -301,7 +303,7 @@
   function visibleFindings() {
     const user = currentUser();
     if (!user) return [];
-    return state.data.findings.filter((finding) => user.role === "admin" || finding.ownerId === user.id);
+    return state.data.findings.filter((finding) => user.role === "admin" || hasOwner(finding, user.id));
   }
 
   function filteredFindings() {
@@ -311,7 +313,7 @@
       if (f.status !== "Todos" && finding.status !== f.status) return false;
       if (f.criticality !== "Todos" && finding.criticality !== f.criticality) return false;
       if (f.priority !== "Todos" && finding.priority !== f.priority) return false;
-      if (f.ownerId !== "Todos" && finding.ownerId !== f.ownerId) return false;
+      if (f.ownerId !== "Todos" && !hasOwner(finding, f.ownerId)) return false;
       if (f.from && finding.detectedAt < f.from) return false;
       if (f.to && finding.detectedAt > f.to) return false;
       return true;
@@ -324,6 +326,37 @@
 
   function ownerName(id) {
     return state.data.people.find((p) => p.id === id)?.name || "Sin asignar";
+  }
+
+  function ownerIds(finding) {
+    return normalizeOwnerIds(finding);
+  }
+
+  function ownerNames(finding) {
+    const ids = ownerIds(finding);
+    if (!ids.length) return "Sin asignar";
+    return ids.map((id) => ownerName(id)).join(", ");
+  }
+
+  function hasOwner(finding, id) {
+    return ownerIds(finding).includes(id);
+  }
+
+  function normalizeOwnerIds(finding) {
+    const values = Array.isArray(finding.ownerIds) ? finding.ownerIds : [];
+    if (finding.ownerId) values.unshift(finding.ownerId);
+    return [...new Set(values.map((id) => String(id || "").trim()).filter(Boolean))];
+  }
+
+  function setFindingOwners(finding, ids) {
+    finding.ownerIds = [...new Set((ids || []).map((id) => String(id || "").trim()).filter(Boolean))];
+    finding.ownerId = finding.ownerIds[0] || "";
+  }
+
+  function sameOwnerSet(a, b) {
+    const left = [...new Set(a || [])].sort().join("|");
+    const right = [...new Set(b || [])].sort().join("|");
+    return left === right;
   }
 
   function badgeClass(value) {
@@ -348,6 +381,21 @@
     return items.reduce((acc, item) => {
       const key = keyFn(item) || "Sin dato";
       acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  }
+
+  function groupCountByOwners(items) {
+    return items.reduce((acc, finding) => {
+      const ids = ownerIds(finding);
+      if (!ids.length) {
+        acc["Sin asignar"] = (acc["Sin asignar"] || 0) + 1;
+        return acc;
+      }
+      ids.forEach((id) => {
+        const key = ownerName(id);
+        acc[key] = (acc[key] || 0) + 1;
+      });
       return acc;
     }, {});
   }
@@ -386,10 +434,31 @@
     return values.map((value) => `<option value="${esc(value)}" ${value === selected ? "selected" : ""}>${esc(value)}</option>`).join("");
   }
 
+  function assignmentPeople() {
+    return state.data.people.filter((p) => ["admin", "usuario"].includes(p.role));
+  }
+
   function personOptions(selected, includeAll) {
-    const users = state.data.people.filter((p) => p.role === "usuario");
+    const users = assignmentPeople();
     const base = includeAll ? [{ id: "Todos", name: "Todos" }] : [{ id: "", name: "Sin asignar" }];
     return base.concat(users).map((p) => `<option value="${esc(p.id)}" ${p.id === selected ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  }
+
+  function peopleCheckboxes(selectedIds, name, disabled = false) {
+    const selected = new Set(selectedIds || []);
+    const people = assignmentPeople();
+    if (!people.length) return `<div class="notice">No hay personas enroladas para asignar.</div>`;
+    return `
+      ${disabled ? "" : `<input type="hidden" name="${esc(name)}" value="">`}
+      <div class="check-list">
+        ${people.map((person) => `
+          <label class="check-row">
+            <input type="checkbox" name="${esc(name)}" value="${esc(person.id)}" ${selected.has(person.id) ? "checked" : ""} ${disabled ? "disabled" : ""}>
+            <span>${esc(person.name)} <small>${esc(person.role)}</small></span>
+          </label>
+        `).join("")}
+      </div>
+    `;
   }
 
   function siteCatalog() {
@@ -599,7 +668,7 @@
         ${state.chartVisibility.status ? barChart("Hallazgos por estado", groupCount(items, (f) => f.status)) : ""}
         ${state.chartVisibility.criticality ? barChart("Hallazgos por criticidad", groupCount(items, (f) => f.criticality)) : ""}
         ${state.chartVisibility.priority ? barChart("Hallazgos por prioridad", groupCount(items, (f) => f.priority)) : ""}
-        ${state.chartVisibility.compliance ? barChart("Cumplimiento por responsable", groupCount(items.filter((f) => f.status === "Cerrado"), (f) => ownerName(f.ownerId))) : ""}
+        ${state.chartVisibility.compliance ? barChart("Cumplimiento por responsable", groupCountByOwners(items.filter((f) => f.status === "Cerrado"))) : ""}
         ${state.chartVisibility.trend ? barChart("Tendencia mensual", groupCount(items, (f) => f.detectedAt.slice(0, 7))) : ""}
         ${state.chartVisibility.progress ? donutChart(items) : ""}
         ${state.chartVisibility.pendingOwners ? pendingOwnersChart(items) : ""}
@@ -657,16 +726,20 @@
 
   function pendingOwnersChart(items) {
     const pending = items.filter((f) => f.status !== "Cerrado");
-    return barChart("Responsables con pendientes", groupCount(pending, (f) => ownerName(f.ownerId)));
+    return barChart("Responsables con pendientes", groupCountByOwners(pending));
   }
 
   function slowOwnersRanking(items) {
     const closed = items.filter((f) => f.status === "Cerrado" && f.assignedEmailAt && f.closedAt);
     const grouped = {};
     closed.forEach((finding) => {
-      const owner = ownerName(finding.ownerId);
-      grouped[owner] = grouped[owner] || [];
-      grouped[owner].push(daysBetween(finding.assignedEmailAt, finding.closedAt));
+      const ids = ownerIds(finding);
+      const owners = ids.length ? ids : [""];
+      owners.forEach((id) => {
+        const owner = id ? ownerName(id) : "Sin asignar";
+        grouped[owner] = grouped[owner] || [];
+        grouped[owner].push(daysBetween(finding.assignedEmailAt, finding.closedAt));
+      });
     });
     const averages = Object.fromEntries(Object.entries(grouped)
       .map(([owner, values]) => [owner, Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)])
@@ -700,7 +773,7 @@
           <div class="deadline-row">
             <div>
               <strong>${esc(finding.id)}</strong>
-              <span>${esc(ownerName(finding.ownerId))} · ${esc(finding.location)}</span>
+              <span>${esc(ownerNames(finding))} · ${esc(finding.location)}</span>
             </div>
             <span class="badge ${badgeClass(deadlineStatus(finding))}">${days < 0 ? `${Math.abs(days)} dias vencido` : `${days} dias`}</span>
           </div>
@@ -868,7 +941,7 @@
                   <td>${esc(f.location)}</td>
                   <td><span class="badge ${badgeClass(f.criticality)}">${esc(f.criticality)}</span></td>
                   <td><span class="badge ${badgeClass(f.priority)}">${esc(f.priority)}</span></td>
-                  <td>${esc(ownerName(f.ownerId))}</td>
+                  <td>${esc(ownerNames(f))}</td>
                   <td>${esc(f.dueDate)}</td>
                   <td><span class="badge ${badgeClass(deadlineStatus(f))}">${esc(deadlineStatus(f))}</span></td>
                   <td><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span>${f.status === "No procesable" && f.nonProcessableReason ? `<div class="muted-note">${esc(f.nonProcessableReason)}</div>` : ""}</td>
@@ -888,8 +961,8 @@
       <section class="panel">
         <div class="panel-header"><h3>Gestion masiva</h3></div>
         <div class="actions bulk-actions">
-          <button class="btn secondary" data-action="select-unassigned" ${assignable.some((f) => !f.ownerId) ? "" : "disabled"}>Seleccionar sin responsable</button>
-          <div class="field compact-field"><label>Responsable</label><select data-bulk-owner>${personOptions("", false)}</select></div>
+          <button class="btn secondary" data-action="select-unassigned" ${assignable.some((f) => !ownerIds(f).length) ? "" : "disabled"}>Seleccionar sin responsable</button>
+          <div class="field compact-field owners-field"><label>Responsables</label>${peopleCheckboxes([], "bulkOwnerIds")}</div>
           <div class="field compact-field"><label>Criterio</label><select data-bulk-criterion>${actionCriteriaOptions("3 dias")}</select></div>
           <button class="btn" data-action="bulk-assign">Asignar seleccionados</button>
         </div>
@@ -980,7 +1053,7 @@
                   <td><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
                   <td><select data-person-field="role" data-person-id="${esc(p.id)}">${options(["admin", "usuario"], p.role)}</select></td>
                   <td><input type="password" value="${esc(p.pin || "")}" data-person-field="pin" data-person-id="${esc(p.id)}"></td>
-                  <td>${visibleFindings().filter((finding) => finding.ownerId === p.id && finding.status !== "Cerrado").length}</td>
+                  <td>${visibleFindings().filter((finding) => hasOwner(finding, p.id) && finding.status !== "Cerrado").length}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -1035,7 +1108,7 @@
     const f = state.data.findings.find((item) => item.id === id);
     const user = currentUser();
     const admin = user.role === "admin";
-    const canManage = admin || f.ownerId === user.id;
+    const canManage = admin || hasOwner(f, user.id);
     return `
       <div class="modal-backdrop">
         <section class="modal">
@@ -1058,14 +1131,14 @@
               <div class="field"><label>Correo asignacion</label><input value="${esc(f.assignedEmailAt || "No enviado")}" disabled></div>
               <div class="field"><label>Criticidad</label><select name="criticality" ${admin ? "" : "disabled"}>${options(["Critica", "Alta", "Media", "Baja"], f.criticality)}</select></div>
               <div class="field"><label>Prioridad</label><select name="priority" ${admin ? "" : "disabled"}>${options(["Alta", "Media", "Baja"], f.priority)}</select></div>
-              <div class="field"><label>Responsable</label><select name="ownerId" ${admin ? "" : "disabled"}>${personOptions(f.ownerId, false)}</select></div>
+              <div class="field span-2"><label>Responsables</label>${peopleCheckboxes(ownerIds(f), "ownerIds", !admin)}</div>
               <div class="field"><label>Fecha limite</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" ${admin ? "" : "disabled"}></div>
               <div class="field"><label>Estado</label><select name="status" ${canManage ? "" : "disabled"}>${options(["Nuevo", "Asignado", "En gestion", "Completado por responsable", "Observado", "Cerrado", "Vencido", "No procesable"], f.status)}</select></div>
               <div class="field span-2"><label>Comentarios</label><textarea name="comments">${esc(f.comments)}</textarea></div>
               <div class="field span-2"><label>Justificacion no procesable</label><textarea name="nonProcessableReason" placeholder="Indica por que este hallazgo no se gestionara">${esc(f.nonProcessableReason || "")}</textarea></div>
               <div class="actions span-2" style="justify-content:flex-start">
                 ${canManage ? `<button class="btn" type="submit">Guardar cambios</button>` : ""}
-                ${admin && f.ownerId ? `<button class="btn secondary" type="button" data-action="send-assignment" data-id="${f.id}">${f.assignedEmailAt ? "Reenviar asignacion" : "Enviar asignacion"}</button>` : ""}
+                ${admin && ownerIds(f).length ? `<button class="btn secondary" type="button" data-action="send-assignment" data-id="${f.id}">${f.assignedEmailAt ? "Reenviar asignacion" : "Enviar asignacion"}</button>` : ""}
                 ${admin && f.status !== "No procesable" ? `<button class="btn secondary" type="button" data-action="mark-non-processable" data-id="${f.id}">Marcar no procesable</button>` : ""}
                 ${admin && f.status === "No procesable" ? `<button class="btn secondary" type="button" data-action="reactivate-finding" data-id="${f.id}">Reactivar</button>` : ""}
                 ${admin && f.status === "Completado por responsable" ? `<button class="btn" type="button" data-action="approve" data-id="${f.id}">Aprobar cierre</button><button class="btn danger" type="button" data-action="observe" data-id="${f.id}">Observar</button>` : ""}
@@ -1192,7 +1265,7 @@
       if (isOverdue(f) && !["Cerrado", "Completado por responsable", "Observado", "No procesable"].includes(f.status) && f.status !== "Vencido") {
         f.status = "Vencido";
         f.history.push(event("Sistema", "Marcado como vencido por superar fecha limite"));
-        queueEmail(f.ownerId, `Hallazgo vencido ${f.id}`, `${f.site} · ${f.location}`);
+        queueEmails(ownerIds(f), `Hallazgo vencido ${f.id}`, `${f.site} · ${f.location}`);
         changed = true;
       }
     });
@@ -1277,6 +1350,7 @@
       criticality: "Media",
       priority: "Media",
       ownerId: "",
+      ownerIds: [],
       dueDate: "",
       status: "Nuevo",
       comments: `Reportado por ${reporterName}${reporterEmail ? ` (${reporterEmail})` : ""}. Origen: formulario interno.`,
@@ -1325,6 +1399,7 @@
       criticality: "Media",
       priority: "Media",
       ownerId: "",
+      ownerIds: [],
       dueDate: todayDate(),
       status: "Nuevo",
       comments: "",
@@ -1350,32 +1425,32 @@
   function selectUnassignedFindings() {
     document.querySelectorAll("[data-bulk-id]").forEach((input) => {
       const finding = state.data.findings.find((item) => item.id === input.dataset.bulkId);
-      input.checked = Boolean(finding && !finding.ownerId && !["Cerrado", "No procesable"].includes(finding.status));
+      input.checked = Boolean(finding && !ownerIds(finding).length && !["Cerrado", "No procesable"].includes(finding.status));
     });
   }
 
   function bulkAssignFindings() {
     const ids = Array.from(document.querySelectorAll("[data-bulk-id]:checked")).map((input) => input.dataset.bulkId);
-    const ownerId = document.querySelector("[data-bulk-owner]")?.value || "";
+    const selectedOwners = Array.from(document.querySelectorAll('input[name="bulkOwnerIds"]:checked')).map((input) => input.value);
     const actionCriteria = document.querySelector("[data-bulk-criterion]")?.value || "3 dias";
-    if (!ids.length || !ownerId) return;
+    if (!ids.length || !selectedOwners.length) return;
 
     let updated = 0;
     ids.forEach((id) => {
       const finding = state.data.findings.find((item) => item.id === id);
       if (!finding || ["Cerrado", "No procesable"].includes(finding.status)) return;
-      finding.ownerId = ownerId;
+      setFindingOwners(finding, selectedOwners);
       finding.actionCriteria = actionCriteria;
       finding.priority = mapPriority(actionCriteria);
       finding.assignedEmailAt = todayDate();
       finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, actionCriteria);
       finding.status = finding.status === "Nuevo" || !finding.status ? "Asignado" : finding.status;
-      finding.history.push(event("Sistema", `Asignacion masiva a ${ownerName(ownerId)}. Plazo recalculado desde ${finding.assignedEmailAt}`));
-      queueEmail(ownerId, `Nuevo hallazgo asignado ${finding.id}`, `${finding.site} · ${finding.location}. Fecha limite: ${finding.dueDate}`);
+      finding.history.push(event("Sistema", `Asignacion masiva a ${ownerNames(finding)}. Plazo recalculado desde ${finding.assignedEmailAt}`));
+      queueEmails(ownerIds(finding), `Nuevo hallazgo asignado ${finding.id}`, `${finding.site} · ${finding.location}. Fecha limite: ${finding.dueDate}`);
       updated += 1;
     });
 
-    state.data.imports.unshift({ at: todayDate(), detail: `${updated} hallazgos asignados masivamente a ${ownerName(ownerId)}.` });
+    state.data.imports.unshift({ at: todayDate(), detail: `${updated} hallazgos asignados masivamente a ${selectedOwners.map(ownerName).join(", ")}.` });
     saveData();
     render();
   }
@@ -1383,7 +1458,7 @@
   function saveFindingForm(e) {
     e.preventDefault();
     const f = state.data.findings.find((item) => item.id === state.selectedId);
-    const beforeOwner = f.ownerId;
+    const beforeOwners = ownerIds(f);
     const beforeStatus = f.status;
     const form = new FormData(e.target);
     const requestedStatus = form.get("status");
@@ -1394,22 +1469,23 @@
       return;
     }
     state.formError = "";
-    ["site", "location", "description", "criticality", "priority", "ownerId", "dueDate", "status", "comments", "actionCriteria", "nonProcessableReason"].forEach((key) => {
+    ["site", "location", "description", "criticality", "priority", "dueDate", "status", "comments", "actionCriteria", "nonProcessableReason"].forEach((key) => {
       if (form.has(key)) f[key] = form.get(key);
     });
+    if (form.has("ownerIds")) setFindingOwners(f, form.getAll("ownerIds"));
     if (form.has("actionCriteria")) {
       const criterion = getCriterion(f.actionCriteria);
       f.priority = criterion.priority;
       f.dueDate = dueDateFromCriteria(f.assignedEmailAt || todayDate(), f.actionCriteria);
     }
-    if (f.ownerId && f.status === "Nuevo") f.status = "Asignado";
+    if (ownerIds(f).length && f.status === "Nuevo") f.status = "Asignado";
     if (f.status === "Cerrado" && !f.closedAt) f.closedAt = todayDate();
     if (f.status === "No procesable") {
       f.closedAt = "";
       f.dueDate = "";
     }
     f.history.push(event(currentUser().name, "Actualizo datos del hallazgo"));
-    if (beforeOwner !== f.ownerId && f.ownerId) {
+    if (!sameOwnerSet(beforeOwners, ownerIds(f)) && ownerIds(f).length) {
       applyAssignmentEmail(f, "Correo de asignacion enviado");
     }
     if (beforeStatus !== f.status) {
@@ -1464,7 +1540,7 @@
     f.evidence.push({ ...evidenceRecord, note, uploadedBy: currentUser().name, uploadedAt: todayDate() });
     f.status = currentUser().role === "admin" ? f.status : "Completado por responsable";
     f.history.push(event(currentUser().name, `Subio evidencia: ${evidence.name}`));
-    queueEmail("u-admin", `Evidencia pendiente ${f.id}`, `${ownerName(f.ownerId)} cargo evidencia para revision.`);
+    queueAdminEmails(`Evidencia pendiente ${f.id}`, `${currentUser().name} cargo evidencia para revision en ${f.id}.`);
     state.formError = "";
     state.evidenceMessage = evidenceMessage;
     saveData();
@@ -1499,7 +1575,7 @@
     f.status = "Cerrado";
     f.closedAt = todayDate();
     f.history.push(event(currentUser().name, "Cierre aprobado"));
-    queueEmail(f.ownerId, `Cierre aprobado ${f.id}`, "La evidencia fue validada y el hallazgo quedo cerrado.");
+    queueEmails(ownerIds(f), `Cierre aprobado ${f.id}`, "La evidencia fue validada y el hallazgo quedo cerrado.");
     saveData();
     render();
   }
@@ -1508,7 +1584,7 @@
     const f = state.data.findings.find((item) => item.id === e.target.dataset.id);
     f.status = "Observado";
     f.history.push(event(currentUser().name, "Evidencia observada; requiere correccion"));
-    queueEmail(f.ownerId, `Evidencia observada ${f.id}`, "Revisa el comentario del administrador y vuelve a cargar evidencia.");
+    queueEmails(ownerIds(f), `Evidencia observada ${f.id}`, "Revisa el comentario del administrador y vuelve a cargar evidencia.");
     saveData();
     render();
   }
@@ -1535,9 +1611,9 @@
   function reactivateFinding(e) {
     const finding = state.data.findings.find((item) => item.id === e.target.dataset.id);
     if (!finding) return;
-    finding.status = finding.ownerId ? "Asignado" : "Nuevo";
+    finding.status = ownerIds(finding).length ? "Asignado" : "Nuevo";
     finding.nonProcessableReason = "";
-    if (finding.ownerId && finding.assignedEmailAt) finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, finding.actionCriteria);
+    if (ownerIds(finding).length && finding.assignedEmailAt) finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, finding.actionCriteria);
     finding.history.push(event(currentUser().name, "Hallazgo reactivado para gestion"));
     state.formError = "";
     saveData();
@@ -1560,6 +1636,14 @@
     };
     state.data.emails.unshift(email);
     dispatchEmail(email);
+  }
+
+  function queueEmails(userIds, subject, body) {
+    [...new Set(userIds || [])].forEach((userId) => queueEmail(userId, subject, body));
+  }
+
+  function queueAdminEmails(subject, body) {
+    queueEmails(state.data.people.filter((person) => person.role === "admin").map((person) => person.id), subject, body);
   }
 
   function sendTestEmails() {
@@ -1626,7 +1710,7 @@
 
   function sendAssignmentEmail(e) {
     const finding = state.data.findings.find((item) => item.id === e.target.dataset.id);
-    if (!finding || !finding.ownerId) return;
+    if (!finding || !ownerIds(finding).length) return;
     applyAssignmentEmail(finding, finding.assignedEmailAt ? "Correo de asignacion reenviado" : "Correo de asignacion enviado");
     saveData();
     render();
@@ -1636,8 +1720,8 @@
     finding.assignedEmailAt = todayDate();
     finding.dueDate = dueDateFromCriteria(finding.assignedEmailAt, finding.actionCriteria);
     if (finding.status === "Nuevo") finding.status = "Asignado";
-    queueEmail(finding.ownerId, `Nuevo hallazgo asignado ${finding.id}`, `${finding.site} · ${finding.location}. Fecha limite: ${finding.dueDate}`);
-    finding.history.push(event("Sistema", `${historyText} a ${ownerName(finding.ownerId)}. Plazo recalculado desde ${finding.assignedEmailAt}`));
+    queueEmails(ownerIds(finding), `Nuevo hallazgo asignado ${finding.id}`, `${finding.site} - ${finding.location}. Fecha limite: ${finding.dueDate}`);
+    finding.history.push(event("Sistema", `${historyText} a ${ownerNames(finding)}. Plazo recalculado desde ${finding.assignedEmailAt}`));
   }
 
   function exportFindingsCsv() {
@@ -1651,7 +1735,7 @@
       finding.criticality,
       finding.priority,
       finding.actionCriteria,
-      ownerName(finding.ownerId),
+      ownerNames(finding),
       finding.assignedEmailAt || "",
       calculateDaysUsed(finding),
       finding.dueDate || "",
@@ -1698,16 +1782,16 @@
   function generateReminders() {
     let created = 0;
     state.data.findings.forEach((finding) => {
-      if (!finding.ownerId || finding.status === "Cerrado" || finding.status === "No procesable") return;
+      if (!ownerIds(finding).length || finding.status === "Cerrado" || finding.status === "No procesable") return;
       const dueDate = finding.dueDate ? new Date(finding.dueDate + "T00:00:00") : null;
       if (!dueDate) return;
       const daysToDue = Math.ceil((dueDate - today) / 86400000);
       if (daysToDue < 0) {
-        queueEmail(finding.ownerId, `Recordatorio vencido ${finding.id}`, `${finding.location}: vencio el ${finding.dueDate}.`);
+        queueEmails(ownerIds(finding), `Recordatorio vencido ${finding.id}`, `${finding.location}: vencio el ${finding.dueDate}.`);
         finding.history.push(event("Sistema", "Recordatorio de vencimiento enviado"));
         created += 1;
       } else if (daysToDue <= 3) {
-        queueEmail(finding.ownerId, `Recordatorio proximo vencimiento ${finding.id}`, `${finding.location}: vence el ${finding.dueDate}.`);
+        queueEmails(ownerIds(finding), `Recordatorio proximo vencimiento ${finding.id}`, `${finding.location}: vence el ${finding.dueDate}.`);
         finding.history.push(event("Sistema", "Recordatorio preventivo enviado"));
         created += 1;
       }
@@ -1729,9 +1813,9 @@
     records.forEach((record) => {
       if (!record.sheetRowId || existing.has(record.sheetRowId)) return;
       const findingId = nextFindingId();
-      const ownerId = resolveOwner(record.responsible);
-      const status = record.closedAt ? "Cerrado" : ownerId ? "Asignado" : "Nuevo";
-      const assignedEmailAt = ownerId ? todayDate() : "";
+      const ownerIdsForRecord = resolveOwners(record.responsible);
+      const status = record.closedAt ? "Cerrado" : ownerIdsForRecord.length ? "Asignado" : "Nuevo";
+      const assignedEmailAt = ownerIdsForRecord.length ? todayDate() : "";
       const dueDate = assignedEmailAt ? dueDateFromCriteria(assignedEmailAt, record.actionCriteria) : "";
       state.data.findings.unshift({
         id: findingId,
@@ -1748,20 +1832,21 @@
         actionCriteria: record.actionCriteria || "",
         criticality: record.criticality || "Media",
         priority: record.priority || "Media",
-        ownerId,
+        ownerId: ownerIdsForRecord[0] || "",
+        ownerIds: ownerIdsForRecord,
         assignedEmailAt,
         dueDate,
         status,
         comments: record.comments || "Importado desde planilla historica.",
-        evidence: record.evidenceName ? [{ name: record.evidenceName, uploadedBy: ownerName(ownerId), uploadedAt: record.closedAt || todayDate(), note: "Evidencia importada desde Google Sheet." }] : [],
+        evidence: record.evidenceName ? [{ name: record.evidenceName, uploadedBy: ownerIdsForRecord.map(ownerName).join(", ") || "Sin asignar", uploadedAt: record.closedAt || todayDate(), note: "Evidencia importada desde Google Sheet." }] : [],
         closedAt: record.closedAt || "",
         history: [
           event("Sistema", "Importado desde CSV de Google Sheets"),
-          ...(ownerId ? [event("Sistema", `Responsable asignado y correo enviado: ${ownerName(ownerId)}`)] : []),
+          ...(ownerIdsForRecord.length ? [event("Sistema", `Responsables asignados y correo enviado: ${ownerIdsForRecord.map(ownerName).join(", ")}`)] : []),
           ...(record.closedAt ? [event("Sistema", "Cierre importado desde planilla")] : [])
         ]
       });
-      if (ownerId && !record.closedAt) queueEmail(ownerId, `Nuevo hallazgo asignado ${findingId}`, `${record.location || "Sin ubicacion"}. Fecha limite: ${dueDate}`);
+      if (ownerIdsForRecord.length && !record.closedAt) queueEmails(ownerIdsForRecord, `Nuevo hallazgo asignado ${findingId}`, `${record.location || "Sin ubicacion"}. Fecha limite: ${dueDate}`);
       existing.add(record.sheetRowId);
       imported += 1;
     });
@@ -1990,14 +2075,14 @@
       alert("Debe quedar al menos un administrador.");
       return;
     }
-    const assigned = state.data.findings.filter((finding) => finding.ownerId === id);
+    const assigned = state.data.findings.filter((finding) => hasOwner(finding, id));
     const message = assigned.length
       ? `${person.name} tiene ${assigned.length} hallazgos asignados. Al eliminarla quedaran sin responsable para reasignacion.`
       : `Eliminar a ${person.name} del directorio.`;
     if (!confirm(message)) return;
     assigned.forEach((finding) => {
-      finding.ownerId = "";
-      if (finding.status === "Asignado" || finding.status === "En gestion" || finding.status === "Vencido") finding.status = "Nuevo";
+      setFindingOwners(finding, ownerIds(finding).filter((ownerId) => ownerId !== id));
+      if (!ownerIds(finding).length && (finding.status === "Asignado" || finding.status === "En gestion" || finding.status === "Vencido")) finding.status = "Nuevo";
       finding.history.push(event(currentUser().name, `Responsable eliminado del directorio: ${person.name}`));
     });
     state.data.people = state.data.people.filter((item) => item.id !== id);
@@ -2122,16 +2207,22 @@
     return value || "3 dias";
   }
 
-  function resolveOwner(name) {
-    const cleaned = String(name || "").split(",")[0].trim();
+  function resolveOwners(value) {
+    return [...new Set(String(value || "")
+      .split(/[;,]/)
+      .map((item) => resolveExistingOwner(item))
+      .filter(Boolean))];
+  }
+
+  function resolveExistingOwner(nameOrEmail) {
+    const cleaned = String(nameOrEmail || "").trim();
     if (!cleaned) return "";
     const normalized = normalizeHeader(cleaned);
-    const existing = state.data.people.find((p) => normalizeHeader(p.name) === normalized);
-    if (existing) return existing.id;
-    const id = `u-${normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}`;
-    const person = { id, name: cleaned, role: "usuario", email: `${id.replace(/^u-/, "")}@empresa.cl`, area: "Obra" };
-    state.data.people.push(person);
-    return id;
+    const existing = assignmentPeople().find((p) =>
+      normalizeHeader(p.name) === normalized
+      || normalizeHeader(p.email) === normalized
+    );
+    return existing ? existing.id : "";
   }
 
   function parseCsv(text) {
