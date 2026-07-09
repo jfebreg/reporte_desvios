@@ -551,6 +551,7 @@
             ${user.role === "admin" ? navButton("import", "Importar Sheets") : ""}
             ${user.role === "admin" ? navButton("people", "Personas") : ""}
             ${navButton("emails", "Alertas correo")}
+            <button class="nav-logout" data-action="logout">Salir</button>
           </nav>
         </aside>
         <main class="content">
@@ -954,7 +955,7 @@
       ${user.role === "admin" ? renderBulkAssign(items) : ""}
       <section class="panel">
         <div class="table-wrap">
-          <table>
+          <table class="mobile-cards">
             <thead>
               <tr>
                 ${user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Fecha emision</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
@@ -963,18 +964,18 @@
             <tbody>
               ${items.map((f) => `
                 <tr>
-                  ${user.role === "admin" ? `<td><input type="checkbox" data-bulk-id="${esc(f.id)}" ${["Cerrado", "No procesable"].includes(f.status) ? "disabled" : ""}></td>` : ""}
-                  <td><strong>${esc(f.id)}</strong></td>
-                  <td>${esc(f.createdAt || f.detectedAt || "")}</td>
-                  <td>${esc(f.site)}</td>
-                  <td>${esc(f.location)}</td>
-                  <td><span class="badge ${badgeClass(f.criticality)}">${esc(f.criticality)}</span></td>
-                  <td><span class="badge ${badgeClass(f.priority)}">${esc(f.priority)}</span></td>
-                  <td>${esc(ownerNames(f))}</td>
-                  <td>${esc(f.dueDate)}</td>
-                  <td><span class="badge ${badgeClass(deadlineStatus(f))}">${esc(deadlineStatus(f))}</span></td>
-                  <td><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span>${f.status === "No procesable" && f.nonProcessableReason ? `<div class="muted-note">${esc(f.nonProcessableReason)}</div>` : ""}</td>
-                  <td><button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button></td>
+                  ${user.role === "admin" ? `<td data-label="Sel."><input type="checkbox" data-bulk-id="${esc(f.id)}" ${["Cerrado", "No procesable"].includes(f.status) ? "disabled" : ""}></td>` : ""}
+                  <td data-label="ID"><strong>${esc(f.id)}</strong></td>
+                  <td data-label="Fecha">${esc(f.createdAt || f.detectedAt || "")}</td>
+                  <td data-label="Obra">${esc(f.site)}</td>
+                  <td data-label="Ubicacion">${esc(f.location)}</td>
+                  <td data-label="Criticidad"><span class="badge ${badgeClass(f.criticality)}">${esc(f.criticality)}</span></td>
+                  <td data-label="Prioridad"><span class="badge ${badgeClass(f.priority)}">${esc(f.priority)}</span></td>
+                  <td data-label="Responsable">${esc(ownerNames(f))}</td>
+                  <td data-label="Vence">${esc(f.dueDate)}</td>
+                  <td data-label="Plazo"><span class="badge ${badgeClass(deadlineStatus(f))}">${esc(deadlineStatus(f))}</span></td>
+                  <td data-label="Estado"><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span>${f.status === "No procesable" && f.nonProcessableReason ? `<div class="muted-note">${esc(f.nonProcessableReason)}</div>` : ""}</td>
+                  <td class="action-cell"><button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button></td>
                 </tr>
               `).join("") || `<tr><td colspan="${user.role === "admin" ? "12" : "11"}" class="empty">No hay hallazgos para estos filtros</td></tr>`}
             </tbody>
@@ -1071,18 +1072,18 @@
       <section class="panel">
         <div class="panel-header"><h3>Directorio editable</h3></div>
         <div class="table-wrap">
-          <table>
+          <table class="mobile-cards">
             <thead><tr><th>Acciones</th><th>Nombre</th><th>Correo</th><th>Area</th><th>Rol</th><th>PIN</th><th>Pendientes</th></tr></thead>
             <tbody>
               ${state.data.people.map((p) => `
                 <tr>
-                  <td><button class="btn danger compact" data-action="delete-person" data-person-id="${esc(p.id)}">Eliminar</button></td>
-                  <td><input value="${esc(p.name)}" data-person-field="name" data-person-id="${esc(p.id)}"></td>
-                  <td><input type="email" value="${esc(p.email)}" data-person-field="email" data-person-id="${esc(p.id)}"></td>
-                  <td><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
-                  <td><select data-person-field="role" data-person-id="${esc(p.id)}">${options(["admin", "usuario"], p.role)}</select></td>
-                  <td><input type="password" value="${esc(p.pin || "")}" data-person-field="pin" data-person-id="${esc(p.id)}"></td>
-                  <td>${visibleFindings().filter((finding) => hasOwner(finding, p.id) && finding.status !== "Cerrado").length}</td>
+                  <td class="action-cell"><button class="btn danger compact" data-action="delete-person" data-person-id="${esc(p.id)}">Eliminar</button></td>
+                  <td data-label="Nombre"><input value="${esc(p.name)}" data-person-field="name" data-person-id="${esc(p.id)}"></td>
+                  <td data-label="Correo"><input type="email" value="${esc(p.email)}" data-person-field="email" data-person-id="${esc(p.id)}"></td>
+                  <td data-label="Area"><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
+                  <td data-label="Rol"><select data-person-field="role" data-person-id="${esc(p.id)}">${options(["admin", "usuario"], p.role)}</select></td>
+                  <td data-label="PIN"><input type="password" value="${esc(p.pin || "")}" data-person-field="pin" data-person-id="${esc(p.id)}"></td>
+                  <td data-label="Pendientes">${visibleFindings().filter((finding) => hasOwner(finding, p.id) && finding.status !== "Cerrado").length}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -1092,14 +1093,14 @@
       <section class="panel">
         <div class="panel-header"><h3>Criterios de accion configurables</h3></div>
         <div class="table-wrap">
-          <table>
+          <table class="mobile-cards compact-cards">
             <thead><tr><th>Criterio</th><th>Plazo en dias</th><th>Prioridad sugerida</th></tr></thead>
             <tbody>
               ${state.data.actionCriteria.map((criterion) => `
                 <tr>
-                  <td><strong>${esc(criterion.label)}</strong></td>
-                  <td><input type="number" min="0" value="${esc(criterion.days)}" data-criterion-days="${esc(criterion.id)}"></td>
-                  <td><select data-criterion-priority="${esc(criterion.id)}">${options(["Alta", "Media", "Baja"], criterion.priority)}</select></td>
+                  <td data-label="Criterio"><strong>${esc(criterion.label)}</strong></td>
+                  <td data-label="Dias"><input type="number" min="0" value="${esc(criterion.days)}" data-criterion-days="${esc(criterion.id)}"></td>
+                  <td data-label="Prioridad"><select data-criterion-priority="${esc(criterion.id)}">${options(["Alta", "Media", "Baja"], criterion.priority)}</select></td>
                 </tr>
               `).join("")}
             </tbody>
@@ -1114,16 +1115,16 @@
       ${renderTop("Alertas de correo", "Bandeja de salida para asignaciones, vencimientos, observaciones y cierres.", `<button class="btn secondary" data-action="send-test-emails">Enviar prueba usuarios</button><button class="btn" data-action="generate-reminders">Generar recordatorios</button>`)}
       <section class="panel">
         <div class="table-wrap">
-          <table>
+          <table class="mobile-cards mail-cards">
             <thead><tr><th>Fecha</th><th>Para</th><th>Asunto</th><th>Estado</th><th>Detalle</th></tr></thead>
             <tbody>
               ${state.data.emails.map((mail) => `
                 <tr>
-                  <td>${esc(mail.at)}</td>
-                  <td>${esc(mail.to)}</td>
-                  <td><strong>${esc(mail.subject)}</strong></td>
-                  <td><span class="badge ${badgeClass(mail.status || "simulado")}">${esc(emailStatusLabel(mail))}</span>${mail.provider ? `<div class="muted-note">${esc(mail.provider)}</div>` : ""}</td>
-                  <td>${mail.errorMessage ? `<strong>Error:</strong> ${esc(mail.errorMessage)}<br>` : ""}${esc(mail.body)}</td>
+                  <td data-label="Fecha">${esc(mail.at)}</td>
+                  <td data-label="Para">${esc(mail.to)}</td>
+                  <td data-label="Asunto"><strong>${esc(mail.subject)}</strong></td>
+                  <td data-label="Estado"><span class="badge ${badgeClass(mail.status || "simulado")}">${esc(emailStatusLabel(mail))}</span>${mail.provider ? `<div class="muted-note">${esc(mail.provider)}</div>` : ""}</td>
+                  <td data-label="Detalle">${mail.errorMessage ? `<strong>Error:</strong> ${esc(mail.errorMessage)}<br>` : ""}${esc(mail.body)}</td>
                 </tr>
               `).join("") || `<tr><td colspan="5" class="empty">Aun no hay correos generados.</td></tr>`}
             </tbody>

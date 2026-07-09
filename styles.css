@@ -22,6 +22,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--ink);
 }
@@ -159,6 +160,10 @@ button {
 .nav button:hover {
   background: rgba(255,255,255,0.12);
   color: #fff;
+}
+
+.nav-logout {
+  display: none;
 }
 
 .content {
@@ -703,78 +708,51 @@ th {
 
   .shell {
     display: block;
+    min-height: 100dvh;
   }
 
   .sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    padding: 10px 12px;
-    gap: 10px;
-    box-shadow: 0 10px 28px rgba(0,0,0,0.16);
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 30;
+    padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+    gap: 0;
+    box-shadow: 0 -10px 28px rgba(0,0,0,0.18);
   }
 
-  .brand {
-    min-height: 38px;
-  }
-
-  .brand-mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 7px;
-    font-size: 13px;
-  }
-
-  .brand h1 {
-    font-size: 15px;
-  }
-
-  .brand p {
-    display: none;
-  }
-
+  .brand,
   .profile {
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 4px 8px;
-    padding: 8px;
-  }
-
-  .profile label,
-  .profile span {
     display: none;
-  }
-
-  .profile strong {
-    font-size: 13px;
-  }
-
-  .profile .btn {
-    min-height: 32px;
   }
 
   .nav {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
   }
 
   .nav button {
-    flex: 0 0 auto;
-    padding: 8px 10px;
-    white-space: nowrap;
+    min-height: 42px;
+    padding: 7px 5px;
+    white-space: normal;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.12;
     background: rgba(255,255,255,0.08);
   }
 
+  .nav-logout {
+    display: block;
+  }
+
   .content {
-    padding: 12px;
+    padding: 12px 12px calc(118px + env(safe-area-inset-bottom));
     gap: 12px;
   }
 
   .public-report {
     padding: 12px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
 
   .login-shell {
@@ -802,12 +780,28 @@ th {
   }
 
   .actions {
-    justify-content: start;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    width: 100%;
+    gap: 8px;
   }
 
   .actions .btn,
   .topbar .btn {
-    flex: 1 1 auto;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  textarea {
+    min-height: 110px;
   }
 
   .kpis, .charts, .cards, .two-col, .filters, .form-grid {
@@ -847,19 +841,90 @@ th {
   }
 
   .table-wrap {
-    margin: 0 -12px;
-    padding: 0 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
   }
 
   table {
-    min-width: 680px;
+    min-width: 0;
   }
 
   th, td {
     padding: 9px 8px;
     font-size: 12px;
+  }
+
+  table.mobile-cards {
+    border-collapse: separate;
+    border-spacing: 0 10px;
+    width: 100%;
+  }
+
+  table.mobile-cards thead {
+    display: none;
+  }
+
+  table.mobile-cards tbody,
+  table.mobile-cards tr,
+  table.mobile-cards td {
+    display: block;
+    width: 100%;
+  }
+
+  table.mobile-cards tr {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 10px 22px rgba(23, 33, 38, 0.06);
+    padding: 8px;
+  }
+
+  table.mobile-cards td {
+    border: 0;
+    display: grid;
+    grid-template-columns: minmax(88px, 36%) 1fr;
+    gap: 8px;
+    align-items: start;
+    padding: 7px 4px;
+    overflow-wrap: anywhere;
+  }
+
+  table.mobile-cards td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  table.mobile-cards td.action-cell {
+    display: block;
+    padding-top: 10px;
+  }
+
+  table.mobile-cards td.action-cell::before {
+    content: "";
+    display: none;
+  }
+
+  table.mobile-cards td.action-cell .btn {
+    width: 100%;
+  }
+
+  table.mobile-cards input,
+  table.mobile-cards select {
+    width: 100%;
+  }
+
+  table.mail-cards td[data-label="Detalle"],
+  table.compact-cards td {
+    grid-template-columns: 1fr;
+  }
+
+  table.mail-cards td[data-label="Detalle"]::before,
+  table.compact-cards td::before {
+    margin-bottom: 2px;
   }
 
   .badge {
@@ -875,7 +940,7 @@ th {
 
   .modal {
     width: 100%;
-    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
     padding: 12px;
   }
 
