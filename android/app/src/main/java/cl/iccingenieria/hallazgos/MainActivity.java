@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.view.View;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -79,19 +78,10 @@ public class MainActivity extends Activity {
                 if (filePathCallback != null) filePathCallback.onReceiveValue(null);
                 filePathCallback = callback;
 
-                Intent contentIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                contentIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                contentIntent.setType("*/*");
-                contentIntent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
-
-                Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                Intent videoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-
-                Intent chooser = Intent.createChooser(contentIntent, "Seleccionar evidencia");
-                chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{cameraIntent, videoIntent});
                 try {
-                    startActivityForResult(chooser, FILE_CHOOSER_REQUEST);
+                    startActivityForResult(params.createIntent(), FILE_CHOOSER_REQUEST);
                 } catch (Exception error) {
+                    filePathCallback.onReceiveValue(null);
                     filePathCallback = null;
                     return false;
                 }
@@ -118,9 +108,8 @@ public class MainActivity extends Activity {
         if (requestCode != FILE_CHOOSER_REQUEST || filePathCallback == null) return;
 
         Uri[] results = null;
-        if (resultCode == RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            if (uri != null) results = new Uri[]{uri};
+        if (resultCode == RESULT_OK) {
+            results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
         }
         filePathCallback.onReceiveValue(results);
         filePathCallback = null;
