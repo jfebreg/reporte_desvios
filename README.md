@@ -17,8 +17,7 @@ Revisa `PUBLICAR.md`. La opcion recomendada para trabajar con GitHub es subir es
 - Roles de administrador y responsable.
 - Formulario interno para reportar desde QR.
 - Hallazgos con criticidad, prioridad, estado, responsable, vencimiento, comentarios, evidencias e historial.
-- Importacion desde Google Sheets mediante CSV.
-- Evita duplicados por `sheetRowId`.
+- Reportes directos desde formulario interno o APK.
 - Alertas de correo simuladas.
 - Revision administrativa para cerrar hallazgos.
 - Dashboard con filtros y graficos.
@@ -30,13 +29,12 @@ Revisa `PUBLICAR.md`. La opcion recomendada para trabajar con GitHub es subir es
 
 Para una version productiva, reemplazar las partes simuladas por:
 
-- Google Sheets API solo para importar datos historicos o de respaldo.
 - Base de datos real, por ejemplo PostgreSQL.
 - Evidencias internas guardadas por el backend.
 - Gmail API, SendGrid o Amazon SES para enviar correos reales.
 - Autenticacion corporativa con Google Workspace o Microsoft Entra ID.
 
-La ruta productiva esta detallada en `PRODUCTIVO.md`, con esquema inicial de base de datos y puente Apps Script en `docs/`.
+La ruta productiva esta detallada en `PRODUCTIVO.md`, con esquema inicial de base de datos en `docs/`.
 
 ## Backend productivo inicial
 
@@ -44,18 +42,15 @@ El repo incluye un backend Node sin dependencias externas en `backend/`.
 
 - `GET /api/state`: estado oficial compartido.
 - `PUT /api/state`: guarda cambios de la web.
-- `POST /api/import/google-sheets`: importa respuestas nuevas con Google Sheets API.
 - `POST /api/evidence/file`: guarda imagenes o videos de evidencia en el backend.
 - `GET /api/evidence/file/:id`: permite abrir evidencias guardadas.
 - `POST /api/jobs/reminders`: genera recordatorios de vencidos o proximos a vencer.
 - `API_TOKEN`: token opcional para proteger la API.
-- `AUTO_IMPORT_MINUTES`: activa importacion automatica periodica desde Google Sheets.
 - `AUTO_REMINDER_MINUTES`: activa recordatorios automaticos.
 - `DATABASE_URL`: si se configura, el backend guarda el estado en PostgreSQL; si no, usa `backend/data/state.json`.
 
 Nota: `API_TOKEN` es una proteccion basica. Para uso productivo completo se requiere login real por usuario.
 
-La configuracion de Google Sheets API esta en `docs/GOOGLE_SHEETS_API.md`.
 El despliegue del backend esta en `docs/DESPLEGAR_BACKEND.md`.
 Incluye `render.yaml` para crear el servicio en Render con menos pasos.
 
@@ -63,9 +58,6 @@ Incluye `render.yaml` para crear el servicio en Render con menos pasos.
 
 El proyecto Android para generar la APK esta en `android/`. Revisa `docs/APK_ANDROID.md`.
 
-## Formato CSV de importacion
+## Captura de reportes
 
-```csv
-sheetRowId,fecha,obra,ubicacion,descripcion,foto
-FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://ejemplo.cl/foto1
-```
+Los reportes nuevos se capturan desde el formulario interno de la web o desde la APK de usuario. La base oficial es PostgreSQL mediante el backend.

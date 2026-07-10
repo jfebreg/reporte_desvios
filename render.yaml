@@ -11,8 +11,6 @@ services:
         value: https://jfebreg.github.io
       - key: API_TOKEN
         generateValue: true
-      - key: AUTO_IMPORT_MINUTES
-        value: "15"
       - key: AUTO_REMINDER_MINUTES
         value: "1440"
       - key: DATABASE_SSL
@@ -21,14 +19,6 @@ services:
         fromDatabase:
           name: reporte-desvios-db
           property: connectionString
-      - key: GOOGLE_SHEET_RANGE
-        value: Respuestas de formulario 1!A:Z
-      - key: GOOGLE_SHEET_ID
-        sync: false
-      - key: GOOGLE_CLIENT_EMAIL
-        sync: false
-      - key: GOOGLE_PRIVATE_KEY
-        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: GMAIL_USER

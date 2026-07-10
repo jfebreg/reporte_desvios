@@ -9,7 +9,7 @@
   const PUBLIC_REPORT_MODE = params.has("reportar");
   const USER_APP_MODE = params.get("app") === "usuario";
   const DATA_MIGRATION_VERSION = "real-users-gsheet-cleanup-2026-07-06";
-  const DELETE_FINDINGS_MIGRATION_VERSION = "delete-h5-h7-2026-07-08";
+  const DELETE_FINDINGS_MIGRATION_VERSION = "delete-h5-h7-no-sheets-2026-07-10";
   const REAL_EMAIL_TEST_SUBJECT = "Prueba correo Hallazgos Seguridad";
   let remoteStateLoaded = false;
   let remoteStateLoading = null;
@@ -53,7 +53,7 @@
       evidence: [],
       closedAt: "",
       history: [
-        event("Sistema", "Importado desde Google Sheets"),
+        event("Sistema", "Registro inicial historico"),
         event("Carolina Rivas", "Asignado a Juan Perez con prioridad Alta")
       ]
     },
@@ -76,7 +76,7 @@
       evidence: [],
       closedAt: "",
       history: [
-        event("Sistema", "Importado desde Google Sheets"),
+        event("Sistema", "Registro inicial historico"),
         event("Maria Soto", "Actualizo estado a En gestion")
       ]
     },
@@ -99,7 +99,7 @@
       evidence: [{ name: "senalizacion-zanja.jpg", uploadedBy: "Diego Morales", uploadedAt: "2026-07-02", note: "Se instalan barreras, cinta y luminarias." }],
       closedAt: "",
       history: [
-        event("Sistema", "Importado desde Google Sheets"),
+        event("Sistema", "Registro inicial historico"),
         event("Diego Morales", "Subio evidencia y marco como completado")
       ]
     },
@@ -122,7 +122,7 @@
       evidence: [{ name: "protector-cable.jpg", uploadedBy: "Juan Perez", uploadedAt: "2026-06-17", note: "Cable retirado y ruta protegida." }],
       closedAt: "2026-06-18",
       history: [
-        event("Sistema", "Importado desde Google Sheets"),
+        event("Sistema", "Registro inicial historico"),
         event("Juan Perez", "Subio evidencia"),
         event("Carolina Rivas", "Cierre aprobado")
       ]
@@ -145,7 +145,7 @@
       comments: "",
       evidence: [],
       closedAt: "",
-      history: [event("Sistema", "Importado desde Google Sheets")]
+      history: [event("Sistema", "Registro inicial historico")]
     }
   ];
 
@@ -250,7 +250,7 @@
     const removedFindings = beforeFindings - data.findings.length;
     data.imports.unshift({
       at: todayDate(),
-      detail: `Migracion usuarios reales aplicada. Hallazgos no GSheet eliminados: ${removedFindings}.`
+      detail: `Migracion usuarios reales aplicada. Hallazgos internos anteriores eliminados: ${removedFindings}.`
     });
     data.settings.dataMigrationVersion = DATA_MIGRATION_VERSION;
     dataChangedByMigration = true;
@@ -562,7 +562,6 @@
             ${USER_APP_MODE ? "" : navButton("dashboard", "Dashboard")}
             ${navButton("report", "Reportar")}
             ${navButton("findings", "Hallazgos")}
-            ${!USER_APP_MODE && user.role === "admin" ? navButton("import", "Importar Sheets") : ""}
             ${!USER_APP_MODE && user.role === "admin" ? navButton("people", "Personas") : ""}
             ${USER_APP_MODE ? "" : navButton("emails", "Alertas correo")}
             <button class="nav-logout" data-action="logout">Salir</button>
@@ -666,7 +665,6 @@
     if (state.view === "dashboard") return renderDashboard();
     if (state.view === "report") return renderReport();
     if (state.view === "findings") return renderFindings();
-    if (state.view === "import") return renderImport();
     if (state.view === "people") return renderPeople();
     if (state.view === "emails") return renderEmails();
     return renderDashboard();
@@ -1037,50 +1035,6 @@
     `;
   }
 
-  function renderImport() {
-    const apiLabel = API_BASE_URL ? API_BASE_URL : "Sin backend configurado";
-    return `
-      ${renderTop("Importar desde Google Sheets", "Pega filas CSV exportadas desde la hoja de respuestas del Form. La web evita duplicados usando el ID de fila/formulario.")}
-      <section class="grid two-col">
-        <div class="panel">
-          <div class="panel-header"><h3>Conexion productiva</h3></div>
-          <div class="notice">API: ${esc(apiLabel)}</div>
-          <div class="actions" style="justify-content:flex-start;margin-top:12px">
-            <button class="btn secondary" data-action="check-backend">Probar backend</button>
-            <button class="btn secondary" data-action="check-auto-import">Ver autoimportacion</button>
-            <button class="btn secondary" data-action="check-google-sheets">Probar GSheet</button>
-            <button class="btn secondary" data-action="run-backend-reminders">Generar recordatorios backend</button>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="notice">Acepta CSV historico con encabezados o el formato simple: sheetRowId,fecha,obra,ubicacion,descripcion,foto</div>
-          <div class="field" style="margin-top:12px">
-            <label>CSV desde Sheets</label>
-            <textarea data-import-csv placeholder="FORM-1006,2026-07-03,Torre Sur,Piso 3,Andamio sin rodapie,https://..."></textarea>
-          </div>
-          <div class="field" style="margin-top:12px">
-            <label>O cargar archivo CSV</label>
-            <input type="file" accept=".csv,text/csv" data-import-file>
-          </div>
-          <div class="actions" style="justify-content:flex-start;margin-top:12px">
-            <button class="btn" data-action="import-google-sheets">Importar automatico GSheet</button>
-            <button class="btn" data-action="import-csv">Importar nuevos</button>
-            <button class="btn secondary" data-action="sample-csv">Cargar ejemplo</button>
-            <button class="btn danger" data-action="reset-data">Limpiar datos actuales</button>
-          </div>
-        </div>
-      </section>
-      <section class="grid two-col">
-        <div class="panel">
-          <div class="panel-header"><h3>Ultimas importaciones</h3></div>
-          <ul class="timeline">
-            ${state.data.imports.map((i) => `<li><strong>${esc(i.at)}</strong> ${esc(i.detail)}</li>`).join("") || `<li>Sin importaciones manuales todavia.</li>`}
-          </ul>
-        </div>
-      </section>
-    `;
-  }
-
   function renderPeople() {
     return `
       ${renderTop("Personas predefinidas", "Responsables disponibles para asignaciones, permisos y alertas.", `<button class="btn" data-action="add-person">Agregar persona</button>`)}
@@ -1209,6 +1163,7 @@
                 ${admin && f.status !== "No procesable" ? `<button class="btn secondary" type="button" data-action="mark-non-processable" data-id="${f.id}">Marcar no procesable</button>` : ""}
                 ${admin && f.status === "No procesable" ? `<button class="btn secondary" type="button" data-action="reactivate-finding" data-id="${f.id}">Reactivar</button>` : ""}
                 ${admin && f.status === "Completado por responsable" ? `<button class="btn" type="button" data-action="approve" data-id="${f.id}">Aprobar cierre</button><button class="btn danger" type="button" data-action="observe" data-id="${f.id}">Observar</button>` : ""}
+                ${admin && f.status !== "Completado por responsable" && f.status !== "Cerrado" && f.status !== "No procesable" && f.evidence.length ? `<button class="btn" type="button" data-action="approve" data-id="${f.id}">Cerrar con evidencia</button>` : ""}
               </div>
             </form>
             <div class="grid">
@@ -1295,14 +1250,7 @@
     document.querySelector("[data-action='mark-non-processable']")?.addEventListener("click", markNonProcessable);
     document.querySelector("[data-action='reactivate-finding']")?.addEventListener("click", reactivateFinding);
     document.querySelector("[data-action='export-findings']")?.addEventListener("click", exportFindingsCsv);
-    document.querySelector("[data-action='sample-csv']")?.addEventListener("click", () => {
-      document.querySelector("[data-import-csv]").value = "FORM-1006,2026-07-03,Edificio Norte,Piso 12,Linea de vida sin certificacion visible,https://ejemplo.cl/foto1\nFORM-1007,2026-07-03,Torre Sur,Acceso camion,Peaton circula sin segregacion de ruta,";
-    });
-    document.querySelector("[data-action='import-csv']")?.addEventListener("click", importCsv);
-    document.querySelector("[data-action='import-google-sheets']")?.addEventListener("click", importGoogleSheets);
     document.querySelector("[data-action='check-backend']")?.addEventListener("click", checkBackend);
-    document.querySelector("[data-action='check-auto-import']")?.addEventListener("click", checkAutoImport);
-    document.querySelector("[data-action='check-google-sheets']")?.addEventListener("click", checkGoogleSheets);
     document.querySelector("[data-action='run-backend-reminders']")?.addEventListener("click", runBackendReminders);
     document.querySelector("[data-action='add-person']")?.addEventListener("click", addPerson);
     document.querySelector("[data-action='import-people']")?.addEventListener("click", importPeople);
@@ -1311,7 +1259,6 @@
     });
     document.querySelectorAll("[data-action='delete-person']").forEach((button) => button.addEventListener("click", deletePerson));
     document.querySelector("[data-action='reset-data']")?.addEventListener("click", resetData);
-    document.querySelector("[data-import-file]")?.addEventListener("change", loadImportFile);
     document.querySelector("[data-people-file]")?.addEventListener("change", loadPeopleFile);
     document.querySelector("[data-action='send-test-emails']")?.addEventListener("click", sendTestEmails);
     document.querySelector("[data-action='generate-reminders']")?.addEventListener("click", generateReminders);
@@ -1869,77 +1816,6 @@
     render();
   }
 
-  function importCsv() {
-    const text = document.querySelector("[data-import-csv]").value.trim();
-    if (!text) return;
-    const existing = new Set(state.data.findings.map((f) => f.sheetRowId));
-    let imported = 0;
-    const rows = parseCsv(text).filter((row) => row.some(Boolean));
-    const header = rows[0] || [];
-    const hasHeader = header.some((cell) => normalizeHeader(cell).includes("marca temporal") || normalizeHeader(cell).includes("describe lo observado"));
-    const records = hasHeader ? rows.slice(1).map((row, index) => mapGoogleFormRow(header, row, index)) : rows.map(mapSimpleRow);
-    records.forEach((record) => {
-      if (!record.sheetRowId || existing.has(record.sheetRowId)) return;
-      const findingId = nextFindingId();
-      const ownerIdsForRecord = resolveOwners(record.responsible);
-      const status = record.closedAt ? "Cerrado" : ownerIdsForRecord.length ? "Asignado" : "Nuevo";
-      const assignedEmailAt = ownerIdsForRecord.length ? todayDate() : "";
-      const dueDate = assignedEmailAt ? dueDateFromCriteria(assignedEmailAt, record.actionCriteria) : "";
-      state.data.findings.unshift({
-        id: findingId,
-        sheetRowId: record.sheetRowId,
-        createdAt: todayDate(),
-        detectedAt: record.detectedAt || todayDate(),
-        site: normalizeSite(record.site),
-        location: record.location || "Sin ubicacion",
-        description: record.description || "Sin descripcion",
-        initialPhoto: record.initialPhoto || "",
-        evidenceName: record.evidenceName || "",
-        reportType: record.reportType || "",
-        reporter: record.reporter || "",
-        actionCriteria: record.actionCriteria || "",
-        criticality: record.criticality || "Media",
-        priority: record.priority || "Media",
-        ownerId: ownerIdsForRecord[0] || "",
-        ownerIds: ownerIdsForRecord,
-        assignedEmailAt,
-        dueDate,
-        status,
-        comments: record.comments || "Importado desde planilla historica.",
-        evidence: record.evidenceName ? [{ name: record.evidenceName, uploadedBy: ownerIdsForRecord.map(ownerName).join(", ") || "Sin asignar", uploadedAt: record.closedAt || todayDate(), note: "Evidencia importada desde Google Sheet." }] : [],
-        closedAt: record.closedAt || "",
-        history: [
-          event("Sistema", "Importado desde CSV de Google Sheets"),
-          ...(ownerIdsForRecord.length ? [event("Sistema", `Responsables asignados y correo enviado: ${ownerIdsForRecord.map(ownerName).join(", ")}`)] : []),
-          ...(record.closedAt ? [event("Sistema", "Cierre importado desde planilla")] : [])
-        ]
-      });
-      if (ownerIdsForRecord.length && !record.closedAt) queueEmails(ownerIdsForRecord, `Nuevo hallazgo asignado ${findingId}`, `${record.location || "Sin ubicacion"}. Fecha limite: ${dueDate}`);
-      existing.add(record.sheetRowId);
-      imported += 1;
-    });
-    state.data.imports.unshift({ at: todayDate(), detail: `${imported} hallazgos nuevos importados; duplicados omitidos.` });
-    saveData();
-    render();
-  }
-
-  async function importGoogleSheets() {
-    if (!API_BASE_URL) {
-      addImportLog("Configura config.js con apiBaseUrl para importar automaticamente desde Google Sheets.");
-      return;
-    }
-    try {
-      const response = await apiFetch("/api/import/google-sheets", { method: "POST" });
-      if (!response.ok) throw new Error(await responseErrorMessage(response, "API"));
-      state.data = migrateData(await response.json());
-      remoteStateLoaded = true;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
-      render();
-    } catch (error) {
-      addImportLog(`No se pudo importar automaticamente desde Google Sheets: ${error.message}`);
-    }
-  }
-
   async function checkBackend() {
     if (!API_BASE_URL) {
       addImportLog("Backend no configurado. Edita config.js y define apiBaseUrl.");
@@ -1951,57 +1827,10 @@
       const payload = await response.json();
       const storage = payload.storage?.provider || "desconocido";
       const mailer = payload.mailer?.provider || "sin correo";
-      const importStatus = Number(payload.autoImportMinutes || 0) ? `autoimport ${payload.autoImportMinutes} min` : "autoimport off";
       const reminderStatus = Number(payload.autoReminderMinutes || 0) ? `recordatorios ${payload.autoReminderMinutes} min` : "recordatorios off";
-      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. Evidencias internas. ${importStatus}. ${reminderStatus}.`);
+      addImportLog(`Backend conectado: ${payload.service || "API"} OK. Storage: ${storage}. Correo: ${mailer}. Evidencias internas. Reportes directos. ${reminderStatus}.`);
     } catch (error) {
       addImportLog(`Backend no responde: ${error.message}.`);
-    }
-  }
-
-  async function checkAutoImport() {
-    if (!API_BASE_URL) {
-      addImportLog("No se puede revisar autoimportacion sin backend configurado.");
-      return;
-    }
-    try {
-      const response = await apiFetch("/api/health");
-      if (!response.ok) throw new Error(await responseErrorMessage(response, "API"));
-      const payload = await response.json();
-      const minutes = Number(payload.autoImportMinutes || 0);
-      if (!minutes) {
-        addImportLog("Autoimportacion desactivada. Configura AUTO_IMPORT_MINUTES en el backend.");
-        return;
-      }
-      const last = payload.lastAutoImport
-        ? `${payload.lastAutoImport.ok ? "OK" : "fallo"} ${payload.lastAutoImport.at || ""}${payload.lastAutoImport.error ? `: ${payload.lastAutoImport.error}` : ""}`
-        : "sin ejecuciones registradas";
-      addImportLog(`Autoimportacion activa cada ${minutes} minutos. Ultimo intento: ${last}.`);
-    } catch (error) {
-      addImportLog(`No se pudo revisar autoimportacion: ${error.message}.`);
-    }
-  }
-
-  async function checkGoogleSheets() {
-    if (!API_BASE_URL) {
-      addImportLog("No se puede probar GSheet sin backend configurado en config.js.");
-      return;
-    }
-    try {
-      const statusResponse = await apiFetch("/api/google-sheets/status");
-      if (!statusResponse.ok) throw new Error(await responseErrorMessage(statusResponse, "API status"));
-      const status = await statusResponse.json();
-      if (!status.configured) {
-        addImportLog("Backend responde, pero Google Sheets no esta configurado. Revisa GOOGLE_SHEET_ID y credenciales.");
-        return;
-      }
-      const previewResponse = await apiFetch("/api/google-sheets/preview");
-      if (!previewResponse.ok) throw new Error(await responseErrorMessage(previewResponse, "API preview"));
-      const preview = await previewResponse.json();
-      const headers = (preview.headers || []).slice(0, 5).join(" | ");
-      addImportLog(`GSheet conectada: ${preview.rowCount || 0} filas detectadas. Encabezados: ${headers || "sin encabezados"}.`);
-    } catch (error) {
-      addImportLog(`No se pudo probar GSheet: ${error.message}.`);
     }
   }
 
@@ -2160,16 +1989,6 @@
     render();
   }
 
-  function loadImportFile(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      document.querySelector("[data-import-csv]").value = String(reader.result || "");
-    };
-    reader.readAsText(file, "utf-8");
-  }
-
   function loadPeopleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2178,49 +1997,6 @@
       document.querySelector("[data-people-csv]").value = reader.result;
     };
     reader.readAsText(file, "utf-8");
-  }
-
-  function mapSimpleRow(row) {
-    const [sheetRowId, detectedAt, site, location, description, initialPhoto] = row;
-    return { sheetRowId, detectedAt: normalizeDate(detectedAt), site, location, description, initialPhoto };
-  }
-
-  function mapGoogleFormRow(header, row, index) {
-    const value = (name) => {
-      const target = normalizeHeader(name);
-      const col = header.findIndex((cell) => normalizeHeader(cell).includes(target));
-      return col >= 0 ? (row[col] || "").trim() : "";
-    };
-    const timestamp = value("marca temporal");
-    const reportType = value("que estas reportando");
-    const location = value("donde ocurrio");
-    const description = value("describe lo observado");
-    const initialPhoto = value("adjunta");
-    const reporter = value("dinos si deseas");
-    const severity = value("gravedad");
-    const actionCriteria = normalizeActionCriteria(value("criterio de accion"));
-    const responsible = value("responsable");
-    const closeDate = value("fecha cierre");
-    const evidenceName = value("evidencia");
-    const detectedAt = normalizeDate(timestamp);
-    return {
-      sheetRowId: `FORM-${timestamp || index + 1}-${description}`.replace(/\s+/g, "-").slice(0, 90),
-      detectedAt,
-      site: state.data.settings.defaultSite || defaultSettings.defaultSite,
-      location,
-      description,
-      initialPhoto,
-      reportType,
-      reporter,
-      criticality: mapCriticality(severity),
-      priority: mapPriority(actionCriteria),
-      actionCriteria,
-      responsible,
-      dueDate: "",
-      closedAt: normalizeDate(closeDate),
-      evidenceName,
-      comments: "Importado desde planilla historica."
-    };
   }
 
   function normalizeHeader(value) {

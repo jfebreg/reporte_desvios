@@ -15,16 +15,11 @@ GitHub Pages publica solo el frontend. El backend debe vivir en un servicio apar
    - `PORT`: Render lo define automaticamente.
    - `APP_ORIGIN`: `https://jfebreg.github.io`
    - `API_TOKEN`: valor largo y dificil de adivinar.
-   - `AUTO_IMPORT_MINUTES`: `15` para importar automaticamente cada 15 minutos, o `0` para desactivar.
    - `AUTO_REMINDER_MINUTES`: `1440` para recordatorios diarios, o `0` para desactivar.
    - `DATABASE_URL`: conexion PostgreSQL.
    - `DATABASE_SSL`: `true` en servicios cloud usuales.
    - `SENDGRID_API_KEY`: opcional para correos reales.
    - `MAIL_FROM`: correo remitente autorizado.
-   - `GOOGLE_SHEET_ID`
-   - `GOOGLE_SHEET_RANGE`
-   - `GOOGLE_CLIENT_EMAIL`
-   - `GOOGLE_PRIVATE_KEY`
 6. Recomendado: crea una base PostgreSQL y copia su `DATABASE_URL`.
 7. Cuando Render entregue la URL, edita `config.js`:
 
@@ -37,16 +32,15 @@ window.REPORTE_DESVIOS_CONFIG = {
 
 8. Sube `config.js` a GitHub para que GitHub Pages use el backend.
 
-El repositorio incluye `render.yaml` para partir mas rapido. Igual debes completar las variables secretas de Google y correo en el panel de Render.
+El repositorio incluye `render.yaml` para partir mas rapido. Debes completar las variables secretas de correo en el panel de Render.
 
 ## Opcion local para prueba
 
 1. Copia `backend/.env.example` como `backend/.env`.
-2. Completa las variables Google.
+2. Completa `DATABASE_URL`, `API_TOKEN` y correo si corresponde.
 3. Ejecuta:
 
 ```bash
-node backend/scripts/check-google.js
 node backend/server.js
 ```
 
@@ -59,22 +53,18 @@ window.REPORTE_DESVIOS_CONFIG = {
 };
 ```
 
-5. Abre la web local y usa `Importar automatico GSheet`.
+5. Abre la web local y prueba crear un hallazgo.
 
 ## Endpoints utiles
 
 ```text
 GET  /api/health
-GET  /api/google-sheets/status
-GET  /api/google-sheets/preview
 GET  /api/state
 PUT  /api/state
-POST /api/import/google-sheets
 POST /api/jobs/reminders
 ```
 
-`GET /api/health` muestra si la importacion automatica esta activa y el resultado del ultimo intento.
-Tambien muestra si el backend esta usando almacenamiento `json` o `postgres`.
+`GET /api/health` muestra si el backend esta usando almacenamiento `json` o `postgres`, y si los recordatorios automaticos estan activos.
 
 ## Pendiente para produccion robusta
 

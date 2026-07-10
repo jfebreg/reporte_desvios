@@ -28,7 +28,7 @@ create table action_criteria (
 create table findings (
   id uuid primary key default gen_random_uuid(),
   public_code text not null unique,
-  source text not null default 'google_form',
+  source text not null default 'formulario_interno',
   source_row_id text unique,
   site_id uuid references sites(id),
   location text not null,

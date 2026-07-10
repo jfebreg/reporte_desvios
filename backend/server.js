@@ -1,7 +1,6 @@
 const http = require("node:http");
 const { URL } = require("node:url");
 const { readState, writeState, getStorageStatus } = require("./src/store");
-const { importFromGoogleSheets, getGoogleSheetsStatus, previewGoogleSheets } = require("./src/sheets");
 const { getMailerStatus, sendMail } = require("./src/mailer");
 const { saveEvidenceFile, readEvidenceFile } = require("./src/evidenceStore");
 const { runReminderJob } = require("./src/reminders");
@@ -12,9 +11,7 @@ loadEnv();
 const PORT = Number(process.env.PORT || 8787);
 const APP_ORIGIN = process.env.APP_ORIGIN || "*";
 const API_TOKEN = process.env.API_TOKEN || "";
-const AUTO_IMPORT_MINUTES = Number(process.env.AUTO_IMPORT_MINUTES || 0);
 const AUTO_REMINDER_MINUTES = Number(process.env.AUTO_REMINDER_MINUTES || 0);
-let lastAutoImport = null;
 let lastReminderRun = null;
 
 const server = http.createServer(async (req, res) => {
@@ -31,9 +28,8 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         service: "reporte-desvios-api",
         auth: API_TOKEN ? "enabled" : "disabled",
-        autoImportMinutes: AUTO_IMPORT_MINUTES,
         autoReminderMinutes: AUTO_REMINDER_MINUTES,
-        lastAutoImport,
+        lastAutoImport: null,
         lastReminderRun,
         mailer: getMailerStatus(),
         storage: getStorageStatus()
@@ -58,16 +54,6 @@ const server = http.createServer(async (req, res) => {
 
     if (!isAuthorized(req)) {
       sendJson(res, 401, { error: "unauthorized" });
-      return;
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/google-sheets/status") {
-      sendJson(res, 200, getGoogleSheetsStatus());
-      return;
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/google-sheets/preview") {
-      sendJson(res, 200, await previewGoogleSheets());
       return;
     }
 
@@ -119,14 +105,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "POST" && url.pathname === "/api/import/google-sheets") {
-      const state = await readState();
-      const nextState = await importFromGoogleSheets(state);
-      await writeState(nextState);
-      sendJson(res, 200, nextState);
-      return;
-    }
-
     if (req.method === "POST" && url.pathname === "/api/jobs/reminders") {
       const state = await readState();
       const result = await runReminderJob(state);
@@ -145,7 +123,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Reporte Desvios API escuchando en http://localhost:${PORT}`);
-  startAutoImport();
+  console.log("Reportes directos activos. Los hallazgos se ingresan directo en la plataforma.");
   startAutoReminders();
 });
 
@@ -235,29 +213,6 @@ function describeError(error) {
     return JSON.stringify(error);
   } catch (_) {
     return String(error);
-  }
-}
-
-function startAutoImport() {
-  if (!AUTO_IMPORT_MINUTES || AUTO_IMPORT_MINUTES < 1) {
-    console.log("Importacion automatica desactivada. Configura AUTO_IMPORT_MINUTES para activarla.");
-    return;
-  }
-  const intervalMs = AUTO_IMPORT_MINUTES * 60 * 1000;
-  console.log(`Importacion automatica activada cada ${AUTO_IMPORT_MINUTES} minutos.`);
-  setInterval(runAutoImport, intervalMs);
-}
-
-async function runAutoImport() {
-  try {
-    const state = await readState();
-    const nextState = await importFromGoogleSheets(state);
-    await writeState(nextState);
-    lastAutoImport = { at: new Date().toISOString(), ok: true };
-    console.log(`Importacion automatica OK: ${lastAutoImport.at}`);
-  } catch (error) {
-    lastAutoImport = { at: new Date().toISOString(), ok: false, error: error.message };
-    console.error(`Importacion automatica fallo: ${error.message}`);
   }
 }
 
