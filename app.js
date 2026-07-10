@@ -1,6 +1,7 @@
 (function () {
   const STORAGE_KEY = "obraSafetyFindings.v1";
   const SESSION_KEY = "obraSafetyFindings.sessionUser";
+  const REMEMBER_EMAIL_KEY = "obraSafetyFindings.rememberEmail";
   const today = new Date();
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
@@ -588,6 +589,7 @@
   }
 
   function renderLogin() {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
     return `
       <div class="login-shell">
         <section class="login-card">
@@ -602,12 +604,16 @@
           <form data-action="login" class="form-grid">
             <div class="field span-2">
               <label>Correo</label>
-              <input name="email" type="email" autocomplete="username" placeholder="tu.correo@empresa.cl">
+              <input name="email" type="email" autocomplete="username" placeholder="tu.correo@empresa.cl" value="${esc(rememberedEmail)}">
             </div>
             <div class="field span-2">
               <label>PIN</label>
               <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Ingresa tu PIN">
             </div>
+            <label class="remember-user span-2">
+              <input name="rememberEmail" type="checkbox" ${rememberedEmail ? "checked" : ""}>
+              <span>Recordar mi correo en este equipo</span>
+            </label>
             ${state.formError ? `<div class="notice span-2">${esc(state.formError)}</div>` : ""}
             <div class="actions span-2" style="justify-content:flex-start">
               <button class="btn" type="submit">Entrar</button>
@@ -627,6 +633,7 @@
     const form = new FormData(e.target);
     const email = normalizeHeader(form.get("email"));
     const pin = String(form.get("pin") || "").trim();
+    const rememberEmail = form.get("rememberEmail") === "on";
     const user = state.data.people.find((person) => normalizeHeader(person.email) === email);
     if (!user || String(user.pin || "") !== pin) {
       state.formError = "Usuario o PIN incorrecto.";
@@ -640,6 +647,8 @@
     }
     state.currentUserId = user.id;
     sessionStorage.setItem(SESSION_KEY, user.id);
+    if (rememberEmail) localStorage.setItem(REMEMBER_EMAIL_KEY, user.email);
+    else localStorage.removeItem(REMEMBER_EMAIL_KEY);
     state.formError = "";
     state.view = USER_APP_MODE ? "report" : "dashboard";
     render();
