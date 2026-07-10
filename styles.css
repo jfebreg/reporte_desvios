@@ -143,6 +143,21 @@ button {
   margin-bottom: 22px;
 }
 
+.remember-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.remember-user input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 .nav {
   display: grid;
   gap: 6px;
