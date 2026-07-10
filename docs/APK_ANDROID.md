@@ -8,7 +8,7 @@ Camino rapido:
 
 1. Entra a la carpeta `android/`.
 2. Ejecuta `generar-apk-rapido.bat`.
-3. Si existe Gradle wrapper, dejara el APK en `outputs/hallazgos-seguridad.apk`.
+3. Si existe Gradle wrapper, generara las variantes disponibles.
 4. Si no existe wrapper, abrira Android Studio en el proyecto correcto.
 
 Desde Android Studio:
@@ -17,19 +17,21 @@ Desde Android Studio:
 2. Ve a `Build > Generate Signed App Bundle / APK`.
 3. Elige `APK`.
 4. Usa la firma local creada por `generar-apk-rapido.bat` o crea una nueva.
-5. Genera variante `release`.
+5. Genera variante `adminRelease` para administradores o `usuarioRelease` para responsables.
 
 Para pruebas sin firma release:
 
 1. Ve a `Build > Build App Bundle(s) / APK(s) > Build APK(s)`.
-2. Android Studio dejara el APK en `android/app/build/outputs/apk/debug/app-debug.apk`.
+2. Android Studio dejara APKs por variante en `android/app/build/outputs/apk/`.
 
 ## Funcionamiento
 
-- La app abre `https://jfebreg.github.io/reporte_desvios/?v=admin-only-1`.
+- APK admin: abre `https://jfebreg.github.io/reporte_desvios/?v=user-app-1`.
+- APK usuario: abre `https://jfebreg.github.io/reporte_desvios/?app=usuario&v=user-app-1`.
 - El login es por correo y PIN.
 - El formulario permite adjuntar imagen o video desde el telefono.
 - Requiere internet para usar backend, correos y evidencias.
+- La APK usuario muestra solo `Reportar`, `Hallazgos` asignados al usuario y `Salir`.
 
 ## Distribucion
 
@@ -39,5 +41,6 @@ Android igual pedira permitir instalacion desde origen desconocido si el APK no 
 
 - Usar APK `release` firmado.
 - Mantener permisos minimos.
-- Distribuir siempre el mismo `applicationId`: `cl.iccingenieria.hallazgos`.
+- APK admin usa `applicationId`: `cl.iccingenieria.hallazgos`.
+- APK usuario usa `applicationId`: `cl.iccingenieria.hallazgos.usuario`.
 - Pasar a Google Play prueba interna cuando se quiera una instalacion mas limpia.

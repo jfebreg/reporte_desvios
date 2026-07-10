@@ -4,7 +4,9 @@
   const today = new Date();
   const API_BASE_URL = (window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
   const API_TOKEN = window.REPORTE_DESVIOS_CONFIG && window.REPORTE_DESVIOS_CONFIG.apiToken || "";
-  const PUBLIC_REPORT_MODE = new URLSearchParams(window.location.search).has("reportar");
+  const params = new URLSearchParams(window.location.search);
+  const PUBLIC_REPORT_MODE = params.has("reportar");
+  const USER_APP_MODE = params.get("app") === "usuario";
   const DATA_MIGRATION_VERSION = "real-users-gsheet-cleanup-2026-07-06";
   const DELETE_FINDINGS_MIGRATION_VERSION = "delete-h5-h7-2026-07-08";
   const REAL_EMAIL_TEST_SUBJECT = "Prueba correo Hallazgos Seguridad";
@@ -147,7 +149,7 @@
   ];
 
   const state = {
-    view: PUBLIC_REPORT_MODE ? "report" : "dashboard",
+    view: (PUBLIC_REPORT_MODE || USER_APP_MODE) ? "report" : "dashboard",
     currentUserId: sessionStorage.getItem(SESSION_KEY) || "",
     filters: { site: "Todos", status: "Todos", criticality: "Todos", priority: "Todos", ownerId: "Todos", from: "", to: "" },
     chartVisibility: { status: false, criticality: false, priority: false, compliance: false, trend: false, progress: false, pendingOwners: false, slowOwners: false, avgResolve: false, deadline: true, upcoming: true, nonProcessable: false },
@@ -321,6 +323,7 @@
   function visibleFindings() {
     const user = currentUser();
     if (!user) return [];
+    if (USER_APP_MODE) return state.data.findings.filter((finding) => hasOwner(finding, user.id));
     return state.data.findings.filter((finding) => user.role === "admin" || hasOwner(finding, user.id));
   }
 
@@ -382,6 +385,7 @@
   }
 
   function setView(view) {
+    if (USER_APP_MODE && !["report", "findings"].includes(view)) view = "report";
     state.view = view;
     state.selectedId = "";
     state.formError = "";
@@ -523,7 +527,7 @@
       return;
     }
     const user = currentUser();
-    if (user && user.role !== "admin") {
+    if (!USER_APP_MODE && user && user.role !== "admin") {
       sessionStorage.removeItem(SESSION_KEY);
       state.currentUserId = "";
       state.selectedId = "";
@@ -554,12 +558,12 @@
             <button class="btn secondary compact" data-action="logout">Salir</button>
           </div>
           <nav class="nav">
-            ${navButton("dashboard", "Dashboard")}
+            ${USER_APP_MODE ? "" : navButton("dashboard", "Dashboard")}
             ${navButton("report", "Reportar")}
             ${navButton("findings", "Hallazgos")}
-            ${user.role === "admin" ? navButton("import", "Importar Sheets") : ""}
-            ${user.role === "admin" ? navButton("people", "Personas") : ""}
-            ${navButton("emails", "Alertas correo")}
+            ${!USER_APP_MODE && user.role === "admin" ? navButton("import", "Importar Sheets") : ""}
+            ${!USER_APP_MODE && user.role === "admin" ? navButton("people", "Personas") : ""}
+            ${USER_APP_MODE ? "" : navButton("emails", "Alertas correo")}
             <button class="nav-logout" data-action="logout">Salir</button>
           </nav>
         </aside>
@@ -594,7 +598,7 @@
               <p>Aduccion Lyon Valparaiso / Terratunel SpA</p>
             </div>
           </div>
-          <p class="plain-text">Acceso exclusivo para administradores.</p>
+          <p class="plain-text">${USER_APP_MODE ? "Acceso para responsables autorizados." : "Acceso exclusivo para administradores."}</p>
           <form data-action="login" class="form-grid">
             <div class="field span-2">
               <label>Correo</label>
@@ -629,7 +633,7 @@
       render();
       return;
     }
-    if (user.role !== "admin") {
+    if (!USER_APP_MODE && user.role !== "admin") {
       state.formError = "Acceso restringido: solo administradores pueden entrar a la web.";
       render();
       return;
@@ -637,7 +641,7 @@
     state.currentUserId = user.id;
     sessionStorage.setItem(SESSION_KEY, user.id);
     state.formError = "";
-    state.view = "dashboard";
+    state.view = USER_APP_MODE ? "report" : "dashboard";
     render();
   }
 
@@ -646,6 +650,10 @@
   }
 
   function renderView() {
+    if (USER_APP_MODE) {
+      if (state.view === "findings") return renderFindings();
+      return renderReport();
+    }
     if (state.view === "dashboard") return renderDashboard();
     if (state.view === "report") return renderReport();
     if (state.view === "findings") return renderFindings();
@@ -963,23 +971,23 @@
   function renderFindings() {
     const user = currentUser();
     const items = filteredFindings();
-    const actions = `${user.role === "admin" ? `<button class="btn" data-action="new-finding">Nuevo hallazgo</button>` : ""}<button class="btn secondary" data-action="export-findings">Exportar CSV</button>`;
+    const actions = USER_APP_MODE ? "" : `${user.role === "admin" ? `<button class="btn" data-action="new-finding">Nuevo hallazgo</button>` : ""}<button class="btn secondary" data-action="export-findings">Exportar CSV</button>`;
     return `
       ${renderTop("Hallazgos", user.role === "admin" ? "Clasifica, asigna, revisa evidencias y cierra hallazgos." : "Gestiona tus hallazgos asignados y sube evidencia.", actions)}
-      ${renderFilters()}
-      ${user.role === "admin" ? renderBulkAssign(items) : ""}
+      ${USER_APP_MODE ? "" : renderFilters()}
+      ${!USER_APP_MODE && user.role === "admin" ? renderBulkAssign(items) : ""}
       <section class="panel">
         <div class="table-wrap">
           <table class="mobile-cards">
             <thead>
               <tr>
-                ${user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Fecha emision</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
+                ${!USER_APP_MODE && user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Fecha emision</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
               </tr>
             </thead>
             <tbody>
               ${items.map((f) => `
                 <tr>
-                  ${user.role === "admin" ? `<td data-label="Sel."><input type="checkbox" data-bulk-id="${esc(f.id)}" ${["Cerrado", "No procesable"].includes(f.status) ? "disabled" : ""}></td>` : ""}
+                  ${!USER_APP_MODE && user.role === "admin" ? `<td data-label="Sel."><input type="checkbox" data-bulk-id="${esc(f.id)}" ${["Cerrado", "No procesable"].includes(f.status) ? "disabled" : ""}></td>` : ""}
                   <td data-label="ID"><strong>${esc(f.id)}</strong></td>
                   <td data-label="Fecha">${esc(f.createdAt || f.detectedAt || "")}</td>
                   <td data-label="Obra">${esc(f.site)}</td>
@@ -993,11 +1001,11 @@
                   <td class="action-cell">
                     <div class="row-actions">
                       <button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button>
-                      ${user.role === "admin" ? `<button class="btn danger" data-action="delete-finding" data-id="${esc(f.id)}">Eliminar</button>` : ""}
+                      ${!USER_APP_MODE && user.role === "admin" ? `<button class="btn danger" data-action="delete-finding" data-id="${esc(f.id)}">Eliminar</button>` : ""}
                     </div>
                   </td>
                 </tr>
-              `).join("") || `<tr><td colspan="${user.role === "admin" ? "12" : "11"}" class="empty">No hay hallazgos para estos filtros</td></tr>`}
+              `).join("") || `<tr><td colspan="${!USER_APP_MODE && user.role === "admin" ? "12" : "11"}" class="empty">No hay hallazgos asignados a tu usuario</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -1157,7 +1165,7 @@
   function renderFindingModal(id) {
     const f = state.data.findings.find((item) => item.id === id);
     const user = currentUser();
-    const admin = user.role === "admin";
+    const admin = !USER_APP_MODE && user.role === "admin";
     const canManage = admin || hasOwner(f, user.id);
     return `
       <div class="modal-backdrop">
@@ -1304,7 +1312,7 @@
   function logoutUser() {
     sessionStorage.removeItem(SESSION_KEY);
     state.currentUserId = "";
-    state.view = "dashboard";
+    state.view = USER_APP_MODE ? "report" : "dashboard";
     state.selectedId = "";
     state.formError = "";
     render();
@@ -1413,7 +1421,7 @@
     };
 
     state.data.findings.unshift(finding);
-    if (PUBLIC_REPORT_MODE) {
+    if (PUBLIC_REPORT_MODE || USER_APP_MODE) {
       state.selectedId = "";
       state.reportMessage = `Reporte enviado correctamente. Codigo: ${finding.id}.`;
     } else {
@@ -1422,7 +1430,7 @@
       state.reportMessage = "";
     }
     const saved = await saveData();
-    if (PUBLIC_REPORT_MODE && !saved) {
+    if ((PUBLIC_REPORT_MODE || USER_APP_MODE) && !saved) {
       state.reportMessage = "No se pudo guardar en el servidor. Intenta nuevamente.";
       render();
       return;

@@ -12,12 +12,32 @@ android {
     namespace "cl.iccingenieria.hallazgos"
     compileSdk 35
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId "cl.iccingenieria.hallazgos"
         minSdk 26
         targetSdk 35
         versionCode 1
         versionName "1.0.0"
+    }
+
+    flavorDimensions "portal"
+    productFlavors {
+        admin {
+            dimension "portal"
+            applicationId "cl.iccingenieria.hallazgos"
+            manifestPlaceholders = [appLabel: "Hallazgos Seguridad"]
+            buildConfigField "String", "START_URL", "\"https://jfebreg.github.io/reporte_desvios/?v=user-app-1\""
+        }
+        usuario {
+            dimension "portal"
+            applicationId "cl.iccingenieria.hallazgos.usuario"
+            manifestPlaceholders = [appLabel: "Hallazgos Usuario"]
+            buildConfigField "String", "START_URL", "\"https://jfebreg.github.io/reporte_desvios/?app=usuario&v=user-app-1\""
+        }
     }
 
     signingConfigs {

@@ -19,7 +19,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
-    private static final String START_URL = "https://jfebreg.github.io/reporte_desvios/?v=admin-only-1";
+    private static final String START_URL = BuildConfig.START_URL;
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int PERMISSION_REQUEST = 1002;
 
