@@ -4,8 +4,8 @@
     "type": "APK",
     "kind": "Directory"
   },
-  "applicationId": "cl.iccingenieria.hallazgos.usuario",
-  "variantName": "usuarioRelease",
+  "applicationId": "cl.iccingenieria.hallazgos",
+  "variantName": "adminRelease",
   "elements": [
     {
       "type": "SINGLE",
@@ -13,7 +13,7 @@
       "attributes": [],
       "versionCode": 2,
       "versionName": "1.0.1",
-      "outputFile": "app-usuario-release.apk"
+      "outputFile": "app-admin-release.apk"
     }
   ],
   "elementType": "File",
