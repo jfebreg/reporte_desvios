@@ -1363,7 +1363,7 @@
       render();
       return;
     }
-    if (PUBLIC_REPORT_MODE) {
+    if (PUBLIC_REPORT_MODE || USER_APP_MODE) {
       if (!API_BASE_URL) {
         state.reportMessage = "No se puede enviar: backend no configurado.";
         render();
