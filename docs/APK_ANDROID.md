@@ -26,7 +26,7 @@ Para pruebas sin firma release:
 
 ## Funcionamiento
 
-- La app abre `https://jfebreg.github.io/reporte_desvios/?v=mobile-usability-2`.
+- La app abre `https://jfebreg.github.io/reporte_desvios/?v=admin-delete-charts-1`.
 - El login es por correo y PIN.
 - El formulario permite adjuntar imagen o video desde el telefono.
 - Requiere internet para usar backend, correos y evidencias.

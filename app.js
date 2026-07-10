@@ -150,7 +150,7 @@
     view: PUBLIC_REPORT_MODE ? "report" : "dashboard",
     currentUserId: sessionStorage.getItem(SESSION_KEY) || "",
     filters: { site: "Todos", status: "Todos", criticality: "Todos", priority: "Todos", ownerId: "Todos", from: "", to: "" },
-    chartVisibility: { status: true, criticality: true, priority: true, compliance: true, trend: true, progress: true, pendingOwners: true, slowOwners: true, avgResolve: true, deadline: true, upcoming: true, nonProcessable: true },
+    chartVisibility: { status: false, criticality: false, priority: false, compliance: false, trend: false, progress: false, pendingOwners: false, slowOwners: false, avgResolve: false, deadline: true, upcoming: true, nonProcessable: false },
     selectedId: "",
     formError: "",
     evidenceMessage: "",
@@ -975,7 +975,12 @@
                   <td data-label="Vence">${esc(f.dueDate)}</td>
                   <td data-label="Plazo"><span class="badge ${badgeClass(deadlineStatus(f))}">${esc(deadlineStatus(f))}</span></td>
                   <td data-label="Estado"><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span>${f.status === "No procesable" && f.nonProcessableReason ? `<div class="muted-note">${esc(f.nonProcessableReason)}</div>` : ""}</td>
-                  <td class="action-cell"><button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button></td>
+                  <td class="action-cell">
+                    <div class="row-actions">
+                      <button class="btn secondary" data-action="open" data-id="${esc(f.id)}">Abrir</button>
+                      ${user.role === "admin" ? `<button class="btn danger" data-action="delete-finding" data-id="${esc(f.id)}">Eliminar</button>` : ""}
+                    </div>
+                  </td>
                 </tr>
               `).join("") || `<tr><td colspan="${user.role === "admin" ? "12" : "11"}" class="empty">No hay hallazgos para estos filtros</td></tr>`}
             </tbody>
@@ -1220,7 +1225,7 @@
 
   function bindEvents() {
     document.querySelectorAll("[data-action='view']").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
-    document.querySelector("[data-action='logout']")?.addEventListener("click", logoutUser);
+    document.querySelectorAll("[data-action='logout']").forEach((button) => button.addEventListener("click", logoutUser));
     document.querySelectorAll("[data-filter]").forEach((input) => input.addEventListener("change", (e) => setFilter(e.target.dataset.filter, e.target.value)));
     document.querySelectorAll("[data-chart-toggle]").forEach((input) => input.addEventListener("change", (e) => {
       state.chartVisibility[e.target.dataset.chartToggle] = e.target.checked;
@@ -1239,6 +1244,7 @@
       state.evidenceMessage = "";
       render();
     }));
+    document.querySelectorAll("[data-action='delete-finding']").forEach((button) => button.addEventListener("click", deleteFinding));
     document.querySelector("[data-action='close-modal']")?.addEventListener("click", () => {
       state.selectedId = "";
       state.formError = "";
@@ -2313,6 +2319,23 @@
   function resetData() {
     state.data = { findings: [], people: people.map((person) => ({ ...person })), emails: [], imports: [], actionCriteria: defaultActionCriteria.map((criterion) => ({ ...criterion })), settings: { ...defaultSettings, sites: [...defaultSettings.sites] } };
     state.selectedId = "";
+    saveData();
+    render();
+  }
+
+  function deleteFinding(e) {
+    const user = currentUser();
+    if (!user || user.role !== "admin") return;
+    const id = e.currentTarget.dataset.id;
+    const finding = state.data.findings.find((item) => item.id === id);
+    if (!finding) return;
+    if (!confirm(`Eliminar definitivamente el hallazgo ${finding.id}?`)) return;
+    state.data.findings = state.data.findings.filter((item) => item.id !== id);
+    state.data.imports.unshift({
+      at: todayDate(),
+      detail: `Hallazgo ${finding.id} eliminado por ${user.name}.`
+    });
+    if (state.selectedId === id) state.selectedId = "";
     saveData();
     render();
   }

@@ -276,6 +276,13 @@ button {
   font-size: 12px;
 }
 
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
 .grid {
   display: grid;
   gap: 16px;
@@ -910,6 +917,12 @@ th {
 
   table.mobile-cards td.action-cell .btn {
     width: 100%;
+  }
+
+  table.mobile-cards .row-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
   }
 
   table.mobile-cards input,
