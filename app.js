@@ -523,6 +523,15 @@
       return;
     }
     const user = currentUser();
+    if (user && user.role !== "admin") {
+      sessionStorage.removeItem(SESSION_KEY);
+      state.currentUserId = "";
+      state.selectedId = "";
+      state.formError = "Acceso restringido: solo administradores pueden entrar a la web.";
+      document.getElementById("app").innerHTML = renderLogin();
+      bindLoginEvents();
+      return;
+    }
     if (!user) {
       document.getElementById("app").innerHTML = renderLogin();
       bindLoginEvents();
@@ -585,6 +594,7 @@
               <p>Aduccion Lyon Valparaiso / Terratunel SpA</p>
             </div>
           </div>
+          <p class="plain-text">Acceso exclusivo para administradores.</p>
           <form data-action="login" class="form-grid">
             <div class="field span-2">
               <label>Correo</label>
@@ -616,6 +626,11 @@
     const user = state.data.people.find((person) => normalizeHeader(person.email) === email);
     if (!user || String(user.pin || "") !== pin) {
       state.formError = "Usuario o PIN incorrecto.";
+      render();
+      return;
+    }
+    if (user.role !== "admin") {
+      state.formError = "Acceso restringido: solo administradores pueden entrar a la web.";
       render();
       return;
     }
