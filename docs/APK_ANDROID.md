@@ -26,8 +26,8 @@ Para pruebas sin firma release:
 
 ## Funcionamiento
 
-- APK admin: abre `https://jfebreg.github.io/reporte_desvios/?v=user-app-1`.
-- APK usuario: abre `https://jfebreg.github.io/reporte_desvios/?app=usuario&v=user-app-1`.
+- APK admin: abre `https://jfebreg.github.io/reporte_desvios/?v=remember-user-1`.
+- APK usuario: abre `https://jfebreg.github.io/reporte_desvios/?app=usuario&v=remember-user-1`.
 - El login es por correo y PIN.
 - El formulario permite adjuntar imagen o video desde el telefono.
 - Requiere internet para usar backend, correos y evidencias.
