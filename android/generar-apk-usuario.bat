@@ -36,15 +36,19 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "app\build\outputs\apk\usuario\release\app-usuario-release.apk" (
+set APK_ORIGEN=app\build\outputs\apk\usuario\release\app-usuario-release.apk
+if not exist "%APK_ORIGEN%" if exist "app\usuario\release\app-usuario-release.apk" set APK_ORIGEN=app\usuario\release\app-usuario-release.apk
+
+if not exist "%APK_ORIGEN%" (
   echo.
   echo No se encontro el APK esperado:
   echo app\build\outputs\apk\usuario\release\app-usuario-release.apk
+  echo app\usuario\release\app-usuario-release.apk
   pause
   exit /b 1
 )
 
-copy /Y "app\build\outputs\apk\usuario\release\app-usuario-release.apk" "..\hallazgos-usuario.apk"
+copy /Y "%APK_ORIGEN%" "..\hallazgos-usuario.apk"
 echo.
 echo APK usuario listo para publicar:
 echo %CD%\..\hallazgos-usuario.apk
