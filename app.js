@@ -158,6 +158,7 @@
     formError: "",
     evidenceMessage: "",
     reportMessage: "",
+    syncMessage: "",
     data: loadData()
   };
 
@@ -290,10 +291,12 @@
         remoteStateLoaded = true;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
         if (dataChangedByMigration) await saveRemoteState();
+        state.syncMessage = "";
         if (shouldRender) render();
         return true;
       } catch (error) {
-        console.warn("No se pudo cargar backend productivo; se usa respaldo local.", error);
+        console.warn("No se pudo sincronizar con el servidor; se usa respaldo local.", error);
+        state.syncMessage = "Servidor iniciando. Si acabas de abrir la app, espera unos segundos antes de enviar.";
         return false;
       } finally {
         remoteStateLoading = null;
@@ -312,7 +315,7 @@
       if (!response.ok) throw new Error(`API ${response.status}`);
       return true;
     } catch (error) {
-      console.warn("No se pudo guardar en backend productivo; se mantiene respaldo local.", error);
+      console.warn("No se pudo guardar en el servidor; se mantiene respaldo local.", error);
       return false;
     }
   }
@@ -568,6 +571,7 @@
           </nav>
         </aside>
         <main class="content">
+          ${state.syncMessage ? `<div class="sync-banner">${esc(state.syncMessage)}</div>` : ""}
           ${renderView()}
         </main>
       </div>
@@ -1317,11 +1321,11 @@
         return;
       }
       if (!remoteStateLoaded) {
-        state.reportMessage = "Conectando con el servidor...";
+        state.reportMessage = "Preparando conexion. Espera unos segundos y vuelve a enviar si es necesario.";
         render();
         const loaded = await loadRemoteState({ render: false });
         if (!loaded) {
-          state.reportMessage = "No se pudo conectar con el servidor. Intenta nuevamente.";
+          state.reportMessage = "El servidor aun esta iniciando. Espera unos segundos e intenta nuevamente.";
           render();
           return;
         }
@@ -2166,8 +2170,9 @@
 
   async function initialize() {
     if (API_BASE_URL) {
-      renderBoot("Conectando con servidor productivo...");
-      await loadRemoteState({ render: false });
+      render();
+      loadRemoteState({ render: true });
+      return;
     }
     render();
   }

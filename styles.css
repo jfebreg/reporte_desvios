@@ -188,6 +188,16 @@ button {
   align-content: start;
 }
 
+.sync-banner {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d7c895;
+  background: #fff8df;
+  color: #6d5516;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
 .public-report {
   width: min(980px, 100%);
   margin: 0 auto;
