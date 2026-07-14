@@ -1073,16 +1073,45 @@
 
   function renderReports() {
     const items = reportFindings();
+    const period = reportPeriodLabel();
+    const siteLabel = reportSiteLabel(items);
     return `
       ${renderTop("Informes", "Emite un informe por rango de fechas con graficos, tabla de hallazgos y adjuntos.", `<button class="btn secondary" data-action="print-report">Imprimir informe</button>`)}
+      <section class="report-cover">
+        <div class="report-brand">
+          <div class="brand-mark report-logo">HS</div>
+          <div>
+            <strong>Hallazgos Seguridad</strong>
+            <span>Obras y evidencias</span>
+          </div>
+        </div>
+        <div class="report-title">
+          <p>Informe tecnico</p>
+          <h1>Informe de hallazgos</h1>
+        </div>
+        <div class="report-meta">
+          <div>
+            <span>Periodo de informe</span>
+            <strong>${esc(period)}</strong>
+          </div>
+          <div>
+            <span>Obra</span>
+            <strong>${esc(siteLabel)}</strong>
+          </div>
+          <div>
+            <span>Fecha de emision</span>
+            <strong>${esc(todayDate())}</strong>
+          </div>
+        </div>
+      </section>
       <section class="filters">
         <div class="field"><label>Desde</label><input type="date" value="${esc(state.report.from)}" data-report-filter="from"></div>
         <div class="field"><label>Hasta</label><input type="date" value="${esc(state.report.to)}" data-report-filter="to"></div>
         <div class="field"><label>&nbsp;</label><button class="btn secondary" data-action="clear-report-filters">Limpiar fechas</button></div>
       </section>
       ${renderReportChartConfig()}
-      <section class="grid kpis">
-        <div class="kpi"><span>Hallazgos informe</span><strong>${items.length}</strong></div>
+      <section class="grid kpis report-kpis">
+        <div class="kpi"><span>Total hallazgos</span><strong>${items.length}</strong></div>
         <div class="kpi"><span>Cerrados</span><strong>${items.filter((f) => f.status === "Cerrado").length}</strong></div>
         <div class="kpi"><span>Vencidos</span><strong>${items.filter(isOverdue).length}</strong></div>
         <div class="kpi"><span>Con adjunto</span><strong>${items.filter((f) => findingAttachment(f)).length}</strong></div>
@@ -1090,8 +1119,8 @@
       <section class="grid charts">
         ${renderSelectedCharts(items, state.report.charts)}
       </section>
-      <section class="panel">
-        <div class="panel-header"><h3>Detalle de hallazgos</h3></div>
+      <section class="panel report-detail">
+        <div class="panel-header"><h3>Detalle de hallazgos del periodo</h3></div>
         <div class="table-wrap">
           <table class="mobile-cards">
             <thead>
@@ -1130,6 +1159,20 @@
         return true;
       })
       .sort((a, b) => String(b.createdAt || b.detectedAt || "").localeCompare(String(a.createdAt || a.detectedAt || "")));
+  }
+
+  function reportPeriodLabel() {
+    if (state.report.from && state.report.to) return `${state.report.from} al ${state.report.to}`;
+    if (state.report.from) return `Desde ${state.report.from}`;
+    if (state.report.to) return `Hasta ${state.report.to}`;
+    return "Todo el registro disponible";
+  }
+
+  function reportSiteLabel(items) {
+    const sites = [...new Set(items.map((finding) => finding.site).filter(Boolean))];
+    if (sites.length === 1) return sites[0];
+    if (sites.length > 1) return "Varias obras";
+    return state.data.settings.defaultSite || defaultSettings.defaultSite;
   }
 
   function findingAttachment(finding) {

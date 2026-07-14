@@ -198,6 +198,100 @@ button {
   font-weight: 700;
 }
 
+.report-cover {
+  display: grid;
+  gap: 24px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  background: linear-gradient(180deg, #ffffff 0%, #f8faf8 100%);
+  box-shadow: var(--shadow);
+}
+
+.report-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-logo {
+  width: 48px;
+  height: 48px;
+}
+
+.report-brand strong,
+.report-brand span {
+  display: block;
+}
+
+.report-brand strong {
+  font-size: 18px;
+}
+
+.report-brand span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.report-title {
+  display: grid;
+  gap: 4px;
+}
+
+.report-title p {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.report-title h1 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.02;
+}
+
+.report-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-meta div {
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+}
+
+.report-meta span,
+.report-meta strong {
+  display: block;
+}
+
+.report-meta span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.report-meta strong {
+  margin-top: 5px;
+  font-size: 15px;
+}
+
+.report-kpis .kpi {
+  border-top: 4px solid var(--accent);
+}
+
+.report-detail table th {
+  background: #eef3f6;
+}
+
 .public-report {
   width: min(980px, 100%);
   margin: 0 auto;
@@ -802,6 +896,19 @@ th {
     gap: 10px;
   }
 
+  .report-cover {
+    padding: 18px;
+    gap: 18px;
+  }
+
+  .report-title h1 {
+    font-size: 32px;
+  }
+
+  .report-meta {
+    grid-template-columns: 1fr;
+  }
+
   .topbar h2 {
     font-size: 26px;
     line-height: 1.1;
@@ -1022,6 +1129,26 @@ th {
 
   .content {
     padding: 0;
+    gap: 14px;
+  }
+
+  .report-cover {
+    box-shadow: none;
+    border: 1px solid #cfd8dc;
+    border-left: 8px solid #1f7a68;
+    padding: 22px;
+  }
+
+  .report-title h1 {
+    font-size: 34px;
+  }
+
+  .report-meta {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .report-meta div {
+    border-radius: 0;
   }
 
   .panel {
@@ -1029,7 +1156,22 @@ th {
     break-inside: avoid;
   }
 
+  .panel-header h3 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
   .table-wrap {
     overflow: visible;
+  }
+
+  table {
+    font-size: 11px;
+  }
+
+  th,
+  td {
+    padding: 8px;
   }
 }
