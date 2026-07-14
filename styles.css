@@ -1001,3 +1001,35 @@ th {
     grid-column: auto;
   }
 }
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .sidebar,
+  .topbar .actions,
+  .filters,
+  .chart-config,
+  .sync-banner,
+  .btn {
+    display: none !important;
+  }
+
+  .shell {
+    display: block;
+  }
+
+  .content {
+    padding: 0;
+  }
+
+  .panel {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .table-wrap {
+    overflow: visible;
+  }
+}

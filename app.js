@@ -154,6 +154,11 @@
     currentUserId: sessionStorage.getItem(SESSION_KEY) || "",
     filters: { site: "Todos", status: "Todos", criticality: "Todos", priority: "Todos", ownerId: "Todos", from: "", to: "" },
     chartVisibility: { status: false, criticality: false, priority: false, compliance: false, trend: false, progress: false, pendingOwners: false, slowOwners: false, avgResolve: false, deadline: true, upcoming: true, nonProcessable: false },
+    report: {
+      from: "",
+      to: "",
+      charts: { status: true, criticality: true, priority: false, compliance: false, trend: false, progress: false, pendingOwners: false, slowOwners: false, avgResolve: false, deadline: true, upcoming: true, nonProcessable: false }
+    },
     selectedId: "",
     formError: "",
     evidenceMessage: "",
@@ -565,6 +570,7 @@
             ${USER_APP_MODE ? "" : navButton("dashboard", "Dashboard")}
             ${navButton("report", "Reportar")}
             ${navButton("findings", "Hallazgos")}
+            ${!USER_APP_MODE && user.role === "admin" ? navButton("reports", "Informes") : ""}
             ${!USER_APP_MODE && user.role === "admin" ? navButton("people", "Personas") : ""}
             ${USER_APP_MODE ? "" : navButton("emails", "Alertas correo")}
             <button class="nav-logout" data-action="logout">Salir</button>
@@ -669,6 +675,7 @@
     if (state.view === "dashboard") return renderDashboard();
     if (state.view === "report") return renderReport();
     if (state.view === "findings") return renderFindings();
+    if (state.view === "reports") return renderReports();
     if (state.view === "people") return renderPeople();
     if (state.view === "emails") return renderEmails();
     return renderDashboard();
@@ -746,7 +753,24 @@
   }
 
   function renderChartConfig() {
-    const labels = {
+    const labels = chartLabels();
+    return `
+      <section class="panel chart-config">
+        <div class="panel-header"><h3>Graficos visibles</h3></div>
+        <div class="toggle-grid">
+          ${Object.entries(labels).map(([key, label]) => `
+            <label class="toggle">
+              <input type="checkbox" data-chart-toggle="${key}" ${state.chartVisibility[key] ? "checked" : ""}>
+              <span>${label}</span>
+            </label>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function chartLabels() {
+    return {
       status: "Estado",
       criticality: "Criticidad",
       priority: "Prioridad",
@@ -760,18 +784,41 @@
       upcoming: "Proximos vencimientos",
       nonProcessable: "No procesables"
     };
+  }
+
+  function renderReportChartConfig() {
+    const labels = chartLabels();
     return `
       <section class="panel chart-config">
-        <div class="panel-header"><h3>Graficos visibles</h3></div>
+        <div class="panel-header"><h3>Graficos del informe</h3></div>
         <div class="toggle-grid">
           ${Object.entries(labels).map(([key, label]) => `
             <label class="toggle">
-              <input type="checkbox" data-chart-toggle="${key}" ${state.chartVisibility[key] ? "checked" : ""}>
+              <input type="checkbox" data-report-chart-toggle="${key}" ${state.report.charts[key] ? "checked" : ""}>
               <span>${label}</span>
             </label>
           `).join("")}
         </div>
       </section>
+    `;
+  }
+
+  function renderSelectedCharts(items, visibility) {
+    const operational = operationalFindings(items);
+    const nonProcessable = items.filter((f) => f.status === "No procesable");
+    return `
+      ${visibility.status ? barChart("Hallazgos por estado", groupCount(operational, (f) => f.status)) : ""}
+      ${visibility.criticality ? barChart("Hallazgos por criticidad", groupCount(operational, (f) => f.criticality)) : ""}
+      ${visibility.priority ? barChart("Hallazgos por prioridad", groupCount(operational, (f) => f.priority)) : ""}
+      ${visibility.compliance ? barChart("Cumplimiento por responsable", groupCountByOwners(operational.filter((f) => f.status === "Cerrado"))) : ""}
+      ${visibility.trend ? barChart("Tendencia mensual", groupCount(operational, (f) => String(f.detectedAt || f.createdAt || "").slice(0, 7))) : ""}
+      ${visibility.progress ? donutChart(operational) : ""}
+      ${visibility.pendingOwners ? pendingOwnersChart(operational) : ""}
+      ${visibility.slowOwners ? slowOwnersRanking(operational) : ""}
+      ${visibility.avgResolve ? averageResolveChart(operational) : ""}
+      ${visibility.deadline ? barChart("Semaforo de plazo", groupCount(operational, deadlineStatus)) : ""}
+      ${visibility.upcoming ? upcomingDeadlinesList(operational) : ""}
+      ${visibility.nonProcessable ? nonProcessableChart(nonProcessable) : ""}
     `;
   }
 
@@ -1024,6 +1071,75 @@
     `;
   }
 
+  function renderReports() {
+    const items = reportFindings();
+    return `
+      ${renderTop("Informes", "Emite un informe por rango de fechas con graficos, tabla de hallazgos y adjuntos.", `<button class="btn secondary" data-action="print-report">Imprimir informe</button>`)}
+      <section class="filters">
+        <div class="field"><label>Desde</label><input type="date" value="${esc(state.report.from)}" data-report-filter="from"></div>
+        <div class="field"><label>Hasta</label><input type="date" value="${esc(state.report.to)}" data-report-filter="to"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn secondary" data-action="clear-report-filters">Limpiar fechas</button></div>
+      </section>
+      ${renderReportChartConfig()}
+      <section class="grid kpis">
+        <div class="kpi"><span>Hallazgos informe</span><strong>${items.length}</strong></div>
+        <div class="kpi"><span>Cerrados</span><strong>${items.filter((f) => f.status === "Cerrado").length}</strong></div>
+        <div class="kpi"><span>Vencidos</span><strong>${items.filter(isOverdue).length}</strong></div>
+        <div class="kpi"><span>Con adjunto</span><strong>${items.filter((f) => findingAttachment(f)).length}</strong></div>
+      </section>
+      <section class="grid charts">
+        ${renderSelectedCharts(items, state.report.charts)}
+      </section>
+      <section class="panel">
+        <div class="panel-header"><h3>Detalle de hallazgos</h3></div>
+        <div class="table-wrap">
+          <table class="mobile-cards">
+            <thead>
+              <tr>
+                <th>Codigo</th><th>Fecha emision</th><th>Ubicacion</th><th>Detalle del hallazgo</th><th>Responsable</th><th>Estatus</th><th>Adjunto</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((f) => {
+                const attachment = findingAttachment(f);
+                return `
+                  <tr>
+                    <td data-label="Codigo"><strong>${esc(f.id)}</strong></td>
+                    <td data-label="Fecha emision">${esc(f.createdAt || f.detectedAt || "")}</td>
+                    <td data-label="Ubicacion">${esc(f.location || "Sin ubicacion")}</td>
+                    <td data-label="Detalle">${esc(f.description || "Sin descripcion")}</td>
+                    <td data-label="Responsable">${esc(ownerNames(f))}</td>
+                    <td data-label="Estatus"><span class="badge ${badgeClass(f.status)}">${esc(f.status)}</span></td>
+                    <td data-label="Adjunto">${attachment ? `<a href="${esc(attachment.url)}" target="_blank" rel="noreferrer">${esc(attachment.label)}</a>` : "Sin adjunto"}</td>
+                  </tr>
+                `;
+              }).join("") || `<tr><td colspan="7" class="empty">No hay hallazgos en el rango seleccionado</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  }
+
+  function reportFindings() {
+    return visibleFindings()
+      .filter((finding) => {
+        const emissionDate = finding.createdAt || finding.detectedAt || "";
+        if (state.report.from && emissionDate < state.report.from) return false;
+        if (state.report.to && emissionDate > state.report.to) return false;
+        return true;
+      })
+      .sort((a, b) => String(b.createdAt || b.detectedAt || "").localeCompare(String(a.createdAt || a.detectedAt || "")));
+  }
+
+  function findingAttachment(finding) {
+    const evidenceWithUrl = (finding.evidence || []).find((item) => item.url);
+    if (evidenceWithUrl) return { url: evidenceWithUrl.url, label: evidenceWithUrl.name || "Ver evidencia" };
+    if (finding.initialPhoto) return { url: finding.initialPhoto, label: "Ver adjunto inicial" };
+    if (isUrl(finding.evidenceName)) return { url: finding.evidenceName, label: "Ver evidencia" };
+    return null;
+  }
+
   function renderBulkAssign(items) {
     const assignable = items.filter((finding) => !["Cerrado", "No procesable"].includes(finding.status));
     return `
@@ -1222,6 +1338,20 @@
       state.chartVisibility[e.target.dataset.chartToggle] = e.target.checked;
       render();
     }));
+    document.querySelectorAll("[data-report-chart-toggle]").forEach((input) => input.addEventListener("change", (e) => {
+      state.report.charts[e.target.dataset.reportChartToggle] = e.target.checked;
+      render();
+    }));
+    document.querySelectorAll("[data-report-filter]").forEach((input) => input.addEventListener("change", (e) => {
+      state.report[e.target.dataset.reportFilter] = e.target.value;
+      render();
+    }));
+    document.querySelector("[data-action='clear-report-filters']")?.addEventListener("click", () => {
+      state.report.from = "";
+      state.report.to = "";
+      render();
+    });
+    document.querySelector("[data-action='print-report']")?.addEventListener("click", () => window.print());
     document.querySelectorAll("[data-criterion-days]").forEach((input) => input.addEventListener("change", updateCriterion));
     document.querySelectorAll("[data-criterion-priority]").forEach((input) => input.addEventListener("change", updateCriterion));
     document.querySelectorAll("[data-person-field]").forEach((input) => input.addEventListener("change", updatePerson));
