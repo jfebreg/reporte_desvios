@@ -1308,15 +1308,12 @@
               <div class="field"><label>Obra</label><select name="site" ${admin ? "" : "disabled"}>${options(siteCatalog(), f.site)}</select></div>
               <div class="field"><label>Ubicacion</label><input name="location" value="${esc(f.location)}" ${admin ? "" : "disabled"}></div>
               <div class="field span-2"><label>Descripcion</label><textarea name="description" ${admin ? "" : "disabled"}>${esc(f.description)}</textarea></div>
-              <div class="field"><label>Tipo reporte</label><input value="${esc(f.reportType || "No informado")}" disabled></div>
-              <div class="field"><label>Reportante</label><input value="${esc(f.reporter || "Anonimo")}" disabled></div>
               <div class="field"><label>Criterio accion</label><select name="actionCriteria" ${admin ? "" : "disabled"}>${actionCriteriaOptions(f.actionCriteria)}</select></div>
               <div class="field"><label>Dias usados</label><input value="${esc(calculateDaysUsed(f))}" disabled></div>
               <div class="field"><label>Correo asignacion</label><input value="${esc(f.assignedEmailAt || "No enviado")}" disabled></div>
               <div class="field"><label>Criticidad</label><select name="criticality" ${admin ? "" : "disabled"}>${options(["Critica", "Alta", "Media", "Baja"], f.criticality)}</select></div>
               <div class="field"><label>Prioridad</label><select name="priority" ${admin ? "" : "disabled"}>${options(["Alta", "Media", "Baja"], f.priority)}</select></div>
               <div class="field span-2"><label>Responsables</label>${peopleCheckboxes(ownerIds(f), "ownerIds", !admin)}</div>
-              <div class="field"><label>Fecha limite</label><input type="date" name="dueDate" value="${esc(f.dueDate)}" ${admin ? "" : "disabled"}></div>
               <div class="field"><label>Estado</label><select name="status" ${canManage ? "" : "disabled"}>${options(["Nuevo", "Asignado", "En gestion", "Completado por responsable", "Observado", "Cerrado", "Vencido", "No procesable"], f.status)}</select></div>
               <div class="field span-2"><label>Comentarios</label><textarea name="comments">${esc(f.comments)}</textarea></div>
               <div class="field span-2"><label>Justificacion no procesable</label><textarea name="nonProcessableReason" placeholder="Indica por que este hallazgo no se gestionara">${esc(f.nonProcessableReason || "")}</textarea></div>
