@@ -1039,7 +1039,7 @@
           <table class="mobile-cards">
             <thead>
               <tr>
-                ${!USER_APP_MODE && user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Fecha emision</th><th>Obra</th><th>Ubicacion</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
+                ${!USER_APP_MODE && user.role === "admin" ? "<th></th>" : ""}<th>ID</th><th>Fecha emision</th><th>Obra</th><th>Detalle del hallazgo</th><th>Criticidad</th><th>Prioridad</th><th>Responsable</th><th>Vence</th><th>Plazo</th><th>Estado</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -1049,7 +1049,7 @@
                   <td data-label="ID"><strong>${esc(f.id)}</strong></td>
                   <td data-label="Fecha">${esc(f.createdAt || f.detectedAt || "")}</td>
                   <td data-label="Obra">${esc(f.site)}</td>
-                  <td data-label="Ubicacion">${esc(f.location)}</td>
+                  <td data-label="Detalle">${esc(f.description || "Sin descripcion")}</td>
                   <td data-label="Criticidad"><span class="badge ${badgeClass(f.criticality)}">${esc(f.criticality)}</span></td>
                   <td data-label="Prioridad"><span class="badge ${badgeClass(f.priority)}">${esc(f.priority)}</span></td>
                   <td data-label="Responsable">${esc(ownerNames(f))}</td>
@@ -2352,3 +2352,4 @@
 
   initialize();
 })();
+
