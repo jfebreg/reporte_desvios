@@ -30,13 +30,13 @@ android {
             dimension "portal"
             applicationId "cl.iccingenieria.hallazgos"
             manifestPlaceholders = [appLabel: "Hallazgos Seguridad"]
-            buildConfigField "String", "START_URL", "\"https://jfebreg.github.io/reporte_desvios/?v=modal-clean-1\""
+            buildConfigField "String", "START_URL", "\"https://jfebreg.github.io/reporte_desvios/?v=people-save-1\""
         }
         usuario {
             dimension "portal"
             applicationId "cl.iccingenieria.hallazgos.usuario"
             manifestPlaceholders = [appLabel: "Hallazgos Usuario"]
-            buildConfigField "String", "START_URL", "\"https://jfebreg.github.io/reporte_desvios/?app=usuario&v=modal-clean-1\""
+            buildConfigField "String", "START_URL", "\"https://jfebreg.github.io/reporte_desvios/?app=usuario&v=people-save-1\""
         }
     }
 

@@ -1231,7 +1231,10 @@
             <tbody>
               ${state.data.people.map((p) => `
                 <tr>
-                  <td class="action-cell"><button class="btn danger compact" data-action="delete-person" data-person-id="${esc(p.id)}">Eliminar</button></td>
+                  <td class="action-cell">
+                    <button class="btn compact" data-action="save-person" data-person-id="${esc(p.id)}">Guardar</button>
+                    <button class="btn danger compact" data-action="delete-person" data-person-id="${esc(p.id)}">Eliminar</button>
+                  </td>
                   <td data-label="Nombre"><input value="${esc(p.name)}" data-person-field="name" data-person-id="${esc(p.id)}"></td>
                   <td data-label="Correo"><input type="email" value="${esc(p.email)}" data-person-field="email" data-person-id="${esc(p.id)}"></td>
                   <td data-label="Area"><input value="${esc(p.area)}" data-person-field="area" data-person-id="${esc(p.id)}"></td>
@@ -1394,7 +1397,7 @@
     document.querySelector("[data-action='print-report']")?.addEventListener("click", () => window.print());
     document.querySelectorAll("[data-criterion-days]").forEach((input) => input.addEventListener("change", updateCriterion));
     document.querySelectorAll("[data-criterion-priority]").forEach((input) => input.addEventListener("change", updateCriterion));
-    document.querySelectorAll("[data-person-field]").forEach((input) => input.addEventListener("change", updatePerson));
+    document.querySelectorAll("[data-action='save-person']").forEach((button) => button.addEventListener("click", savePerson));
     document.querySelector("[data-action='clear-filters']")?.addEventListener("click", () => {
       state.filters = { site: "Todos", status: "Todos", criticality: "Todos", priority: "Todos", ownerId: "Todos", from: "", to: "" };
       render();
@@ -1960,10 +1963,14 @@
     saveData();
   }
 
-  function updatePerson(e) {
-    const person = state.data.people.find((item) => item.id === e.target.dataset.personId);
+  function savePerson(e) {
+    const personId = e.target.dataset.personId;
+    const person = state.data.people.find((item) => item.id === personId);
     if (!person) return;
-    person[e.target.dataset.personField] = e.target.value.trim();
+    document.querySelectorAll("[data-person-field]").forEach((input) => {
+      if (input.dataset.personId !== personId) return;
+      person[input.dataset.personField] = input.value.trim();
+    });
     saveData();
     render();
   }
